@@ -439,3 +439,4 @@ sudo pacman -S webkit2gtk-4.1
 
 **Versión actual**: 1.0.0 (Módulo Kata)
 **Última actualización**: 2026-01-13
+# marcadorKarate
