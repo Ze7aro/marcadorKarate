@@ -1,0 +1,70 @@
+{
+  "app": {
+    "title": "拳種館スコアボード",
+    "subtitle": "空手道競技会の採点システム",
+    "version": "バージョン {{version}} - Tauri + React で開発"
+  },
+  "navigation": {
+    "home": "ホーム",
+    "kata": "型",
+    "kumite": "組手",
+    "stats": "統計",
+    "history": "履歴",
+    "backToHome": "ホームに戻る"
+  },
+  "buttons": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "export": "Exportar",
+    "import": "Importar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "reset": "Resetear",
+    "add": "Agregar",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "comingSoon": "近日公開",
+    "loading": "Cargando...",
+    "refresh": "Actualizar",
+    "clear": "Limpiar",
+    "apply": "Aplicar"
+  },
+  "states": {
+    "loading": "Cargando...",
+    "empty": "No hay datos",
+    "noData": "No hay datos disponibles",
+    "error": "Ocurrió un error",
+    "success": "Operación exitosa",
+    "offline": "Sin conexión a internet",
+    "online": "Conectado",
+    "saved": "Guardado",
+    "pending": "Pendiente",
+    "completed": "Completado"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "ja": "日本語",
+    "selectLanguage": "言語を選択"
+  },
+  "confirmations": {
+    "areYouSure": "¿Estás seguro?",
+    "cannotBeUndone": "Esta acción no se puede deshacer",
+    "confirmDelete": "¿Confirmar eliminación?",
+    "confirmReset": "¿Confirmar reset?"
+  },
+  "actions": {
+    "openWindow": "Abrir ventana",
+    "closeWindow": "Cerrar ventana",
+    "download": "Descargar",
+    "upload": "Subir"
+  },
+  "formats": {
+    "date": "Fecha",
+    "time": "Hora",
+    "dateTime": "Fecha y hora"
+  }
+}

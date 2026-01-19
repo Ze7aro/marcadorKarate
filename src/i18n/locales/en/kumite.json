@@ -1,0 +1,13 @@
+{
+  "module": {
+    "title": "Kumite",
+    "subtitle": "Kumite Module",
+    "description": "Combat management with timer and scoring system",
+    "start": "Start Kumite",
+    "comingSoon": "Coming Soon"
+  },
+  "placeholder": {
+    "message": "The Kumite module will be available soon",
+    "description": "This module will allow managing combats with timer, elimination brackets and complete scoring system"
+  }
+}

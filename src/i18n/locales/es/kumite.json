@@ -1,0 +1,155 @@
+{
+  "module": {
+    "title": "Kumite",
+    "subtitle": "Módulo Kumite",
+    "description": "Gestión de combates con temporizador y sistema de puntuación",
+    "start": "Iniciar Kumite"
+  },
+  "config": {
+    "title": "Configuración",
+    "area": "Área",
+    "category": "Categoría",
+    "categoryPlaceholder": "Ej: Juvenil -60kg",
+    "matchDuration": "Duración del Match",
+    "winThreshold": "Puntos para Ganar",
+    "seconds": "segundos",
+    "points": "puntos"
+  },
+  "competitor": {
+    "title": "Competidores",
+    "add": "Agregar Competidor",
+    "name": "Nombre",
+    "age": "Edad",
+    "remove": "Eliminar",
+    "total": "Total de competidores",
+    "aka": "Aka (Rojo)",
+    "shiro": "Shiro (Blanco)",
+    "list": "Lista de Competidores"
+  },
+  "bracket": {
+    "title": "Bracket",
+    "generate": "Generar Bracket",
+    "regenerate": "Regenerar Bracket",
+    "view": "Ver Bracket",
+    "round": "Ronda",
+    "final": "Final",
+    "semifinal": "Semifinal",
+    "quarterfinal": "Cuartos de Final",
+    "pending": "Pendiente",
+    "inProgress": "En Progreso",
+    "completed": "Completado"
+  },
+  "match": {
+    "title": "Match",
+    "current": "Match Actual",
+    "start": "Iniciar Match",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "end": "Finalizar Match",
+    "reset": "Reiniciar Timer",
+    "time": "Tiempo",
+    "score": "Puntaje",
+    "vs": "vs"
+  },
+  "actions": {
+    "wazari": "Wazari",
+    "ippon": "Ippon",
+    "yuko": "Yuko",
+    "addPenalty": "Agregar Penalización",
+    "removePenalty": "Quitar Penalización",
+    "declareWinner": "Declarar Ganador",
+    "hantei": "Hantei",
+    "kiken": "Kiken",
+    "shikaku": "Shikaku",
+    "openProjection": "Abrir Proyección",
+    "closeProjection": "Cerrar Proyección",
+    "saveCompetition": "Guardar Competencia",
+    "exportPDF": "Exportar PDF",
+    "exportExcel": "Exportar Excel",
+    "reset": "Reiniciar Todo",
+    "viewResults": "Ver Resultados",
+    "enchoSen": "Encho-sen (Punto de Oro)",
+    "startEnchoSen": "Encho-sen"
+  },
+  "penalties": {
+    "title": "Infracciones",
+    "atenai": "Atenai",
+    "atenai_chui": "Atenai-chui",
+    "atenai_hansoku": "Atenai-hansoku"
+  },
+  "warnings": {
+    "title": "Avisos",
+    "kinshi": "Kinshi",
+    "kinshi_ni": "Kinshi-ni",
+    "kinshi_chui": "Kinshi-chui",
+    "kinshi_hansoku": "Kinshi-hansoku"
+  },
+  "results": {
+    "title": "Resultados",
+    "finalResults": "Resultados Finales",
+    "winner": "Ganador",
+    "runnerUp": "Subcampeón",
+    "thirdPlace": "Tercer Lugar",
+    "position": "Posición",
+    "allMatches": "Todos los Matches",
+    "matchHistory": "Historial de Matches",
+    "disqualification": "Descalificación",
+    "hantei": "Hantei"
+  },
+  "messages": {
+    "saved": "Competencia guardada con ID: {{id}}",
+    "saving": "Guardando competencia...",
+    "loaded": "Competencia cargada exitosamente",
+    "bracketGenerated": "Bracket generado con {{matches}} matches",
+    "matchStarted": "Match iniciado",
+    "matchEnded": "Match finalizado",
+    "winnerDeclared": "Ganador: {{winner}}",
+    "timeUp": "¡Tiempo!",
+    "projectionOpened": "Ventana de proyección abierta",
+    "projectionClosed": "Ventana de proyección cerrada",
+    "noCompetitors": "No hay competidores",
+    "minCompetitors": "Se necesitan al menos 2 competidores",
+    "selectArea": "Seleccione un área",
+    "selectCategory": "Ingrese una categoría",
+    "nextMatch": "Siguiente match cargado",
+    "tournamentEnded": "¡Torneo completado!",
+    "matchSelected": "Match seleccionado",
+    "penaltyAlreadyExists": "Esta infracción ya ha sido aplicada al competidor",
+    "warningAlreadyExists": "Este aviso ya ha sido aplicado al competidor",
+    "enchoSenPrompt": "El match terminó en empate. Configure el tiempo para el Encho-sen (Punto de Oro). El primer punto ganará el match."
+  },
+  "confirmations": {
+    "reset": "¿Estás seguro de reiniciar todo? Se perderán todos los datos.",
+    "delete": "¿Eliminar este competidor?",
+    "endMatch": "¿Finalizar el match actual?",
+    "declareWinner": "¿Declarar ganador a {{name}}?"
+  },
+  "projection": {
+    "title": "Kumite - Proyección",
+    "currentMatch": "Match Actual",
+    "round": "Ronda",
+    "connecting": "Conectando...",
+    "connected": "Conectado",
+    "noMatch": "Sin match activo",
+    "shortcuts": "Atajos: F11 = Pantalla completa | ESC = Salir"
+  },
+  "excel": {
+    "uploadFile": "Subir Archivo Excel",
+    "dragDrop": "Arrastra un archivo Excel aquí",
+    "clickToSelect": "o haz clic para seleccionar",
+    "loading": "Cargando...",
+    "success": "Archivo cargado: {{count}} competidores",
+    "error": "Error al cargar archivo",
+    "invalidFormat": "Formato de archivo inválido"
+  },
+  "history": {
+    "title": "Historial",
+    "subtitle": "Competencias anteriores",
+    "load": "Cargar",
+    "delete": "Eliminar",
+    "noHistory": "No hay competencias guardadas",
+    "date": "Fecha",
+    "competitors": "Competidores",
+    "matches": "Matches"
+  }
+}

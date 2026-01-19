@@ -1,0 +1,56 @@
+{
+  "network": {
+    "offline": "No hay conexión a internet",
+    "timeout": "La solicitud tardó demasiado tiempo",
+    "generic": "Error de red",
+    "connectionLost": "Se perdió la conexión",
+    "connectionRestored": "Conexión restaurada"
+  },
+  "kata": {
+    "noCompetitors": "No hay competidores para {{action}}",
+    "saveFailed": "Error al guardar competencia",
+    "loadFailed": "Error al cargar competencia",
+    "exportFailed": "Error al exportar a {{format}}",
+    "projectionFailed": "Error al {{action}} ventana de proyección",
+    "invalidConfiguration": "Configuración inválida",
+    "missingArea": "Falta seleccionar área",
+    "missingCategory": "Falta ingresar categoría"
+  },
+  "validation": {
+    "required": "Este campo es requerido",
+    "invalidScore": "Puntaje inválido",
+    "minValue": "El valor mínimo es {{min}}",
+    "maxValue": "El valor máximo es {{max}}",
+    "mustBeNumber": "Debe ser un número",
+    "mustBePositive": "Debe ser un número positivo",
+    "invalidRange": "Valor fuera de rango ({{min}} - {{max}})",
+    "invalidFormat": "Formato inválido",
+    "allFieldsRequired": "Todos los campos son requeridos",
+    "invalidEmail": "Email inválido",
+    "tooShort": "Demasiado corto",
+    "tooLong": "Demasiado largo"
+  },
+  "file": {
+    "uploadFailed": "Error al subir archivo",
+    "invalidFormat": "Formato de archivo inválido",
+    "fileTooLarge": "El archivo es demasiado grande",
+    "readError": "Error al leer el archivo",
+    "processingError": "Error al procesar el archivo",
+    "noData": "No se encontraron datos en el archivo"
+  },
+  "database": {
+    "saveFailed": "Error al guardar en la base de datos",
+    "loadFailed": "Error al cargar desde la base de datos",
+    "deleteFailed": "Error al eliminar de la base de datos",
+    "connectionFailed": "Error al conectar con la base de datos"
+  },
+  "general": {
+    "unknown": "Error desconocido",
+    "tryAgain": "Por favor intenta de nuevo",
+    "contactSupport": "Si el problema persiste, contacta soporte",
+    "operationFailed": "La operación falló",
+    "notFound": "No encontrado",
+    "accessDenied": "Acceso denegado",
+    "timeout": "Tiempo de espera agotado"
+  }
+}

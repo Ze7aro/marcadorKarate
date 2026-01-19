@@ -1,0 +1,36 @@
+{
+  "title": "Estadísticas",
+  "subtitle": "Resumen del historial de competencias Kata",
+  "summary": {
+    "title": "Resumen General",
+    "totalCompetitions": "Total de Competencias",
+    "totalCompetitors": "Total de Competidores",
+    "lastCompetition": "Última Competencia",
+    "avgCompetitorsPerCompetition": "Promedio de Competidores por Competencia",
+    "noStats": "No hay estadísticas disponibles",
+    "noStatsHint": "Guarda algunas competencias para ver estadísticas aquí"
+  },
+  "distribution": {
+    "title": "Distribución por Área",
+    "area": "Área {{number}}",
+    "competitions": "Competencias",
+    "percentage": "Porcentaje",
+    "competition": "competencia",
+    "competition_other": "competencias"
+  },
+  "actions": {
+    "refresh": "Actualizar",
+    "exportPDF": "Exportar PDF",
+    "goToKata": "Ir a Kata"
+  },
+  "messages": {
+    "exported": "Estadísticas exportadas exitosamente",
+    "errorExporting": "Error al exportar estadísticas",
+    "noDataToExport": "No hay estadísticas para exportar"
+  },
+  "labels": {
+    "competitionsRegistered": "Competencias registradas",
+    "acrossAllCompetitions": "A través de todas las competencias",
+    "mostRecent": "Fecha más reciente"
+  }
+}

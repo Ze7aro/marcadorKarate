@@ -1,0 +1,18 @@
+{
+  "name": "Marcador Kenshukan",
+  "short_name": "Kenshukan",
+  "description": "Sistema de puntuación para competencias de Karate Do",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

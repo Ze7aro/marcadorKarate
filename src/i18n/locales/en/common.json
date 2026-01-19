@@ -1,0 +1,70 @@
+{
+  "app": {
+    "title": "Kenshukan Scoreboard",
+    "subtitle": "Scoring system for Karate Do competitions",
+    "version": "Version {{version}} - Built with Tauri + React"
+  },
+  "navigation": {
+    "home": "Home",
+    "kata": "Kata",
+    "kumite": "Kumite",
+    "stats": "Statistics",
+    "history": "History",
+    "backToHome": "Back to Home"
+  },
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "export": "Export",
+    "import": "Import",
+    "close": "Close",
+    "confirm": "Confirm",
+    "reset": "Reset",
+    "add": "Add",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "comingSoon": "Coming Soon",
+    "loading": "Loading...",
+    "refresh": "Refresh",
+    "clear": "Clear",
+    "apply": "Apply"
+  },
+  "states": {
+    "loading": "Loading...",
+    "empty": "No data",
+    "noData": "No data available",
+    "error": "An error occurred",
+    "success": "Operation successful",
+    "offline": "No internet connection",
+    "online": "Connected",
+    "saved": "Saved",
+    "pending": "Pending",
+    "completed": "Completed"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "ja": "日本語",
+    "selectLanguage": "Select language"
+  },
+  "confirmations": {
+    "areYouSure": "Are you sure?",
+    "cannotBeUndone": "This action cannot be undone",
+    "confirmDelete": "Confirm deletion?",
+    "confirmReset": "Confirm reset?"
+  },
+  "actions": {
+    "openWindow": "Open window",
+    "closeWindow": "Close window",
+    "download": "Download",
+    "upload": "Upload"
+  },
+  "formats": {
+    "date": "Date",
+    "time": "Time",
+    "dateTime": "Date and time"
+  }
+}

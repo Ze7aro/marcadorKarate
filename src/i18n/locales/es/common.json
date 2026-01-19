@@ -1,0 +1,72 @@
+{
+  "app": {
+    "title": "Marcador Kenshukan",
+    "subtitle": "Sistema de puntuación para competencias de Karate Do",
+    "version": "Versión {{version}} - Desarrollado con Tauri + React"
+  },
+  "navigation": {
+    "home": "Inicio",
+    "kata": "Kata",
+    "kumite": "Kumite",
+    "stats": "Estadísticas",
+    "history": "Historial",
+    "backToHome": "Volver al Inicio"
+  },
+  "buttons": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "export": "Exportar",
+    "import": "Importar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "reset": "Resetear",
+    "add": "Agregar",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "comingSoon": "Próximamente",
+    "loading": "Cargando...",
+    "refresh": "Actualizar",
+    "clear": "Limpiar",
+    "apply": "Aplicar"
+  },
+  "states": {
+    "loading": "Cargando...",
+    "empty": "No hay datos",
+    "noData": "No hay datos disponibles",
+    "error": "Ocurrió un error",
+    "success": "Operación exitosa",
+    "offline": "Sin conexión a internet",
+    "online": "Conectado",
+    "saved": "Guardado",
+    "pending": "Pendiente",
+    "completed": "Completado"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "ja": "日本語",
+    "selectLanguage": "Seleccionar idioma"
+  },
+  "confirmations": {
+    "areYouSure": "¿Estás seguro?",
+    "cannotBeUndone": "Esta acción no se puede deshacer",
+    "confirmDelete": "¿Confirmar eliminación?",
+    "confirmReset": "¿Confirmar reset?"
+  },
+  "actions": {
+    "openWindow": "Abrir ventana",
+    "closeWindow": "Cerrar ventana",
+    "download": "Descargar",
+    "upload": "Subir",
+    "startEnchoSen": "Iniciar Encho-sen",
+    "cancel": "Cancelar"
+  },
+  "formats": {
+    "date": "Fecha",
+    "time": "Hora",
+    "dateTime": "Fecha y hora"
+  }
+}
