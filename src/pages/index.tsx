@@ -39,9 +39,6 @@ export default function IndexPage() {
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
                   {t("kata:module.description")}
                 </p>
-                <div className="w-full">
-                  {t("kata:module.start")}
-                </div>
               </div>
             </CardBody>
           </Card>
@@ -61,9 +58,6 @@ export default function IndexPage() {
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
                   {t("kumite:module.description")}
                 </p>
-                <div className="w-full">
-                  {t("kumite:module.start")}
-                </div>
               </div>
             </CardBody>
           </Card>
