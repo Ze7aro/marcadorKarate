@@ -13,13 +13,13 @@ import {
  */
 export function generateBracket(
   competidores: CompetidorKumite[],
-  matchDuration: number = 120
+  matchDuration: number = 120,
 ): BracketState {
   const totalCompetitors = competidores.length;
 
   if (totalCompetitors < 2) {
     throw new Error(
-      "Se necesitan al menos 2 competidores para generar un bracket"
+      "Se necesitan al menos 2 competidores para generar un bracket",
     );
   }
 
@@ -59,6 +59,8 @@ export function generateBracket(
       scoreShiro: 0,
       penaltiesAka: [],
       penaltiesShiro: [],
+      warningsAka: [],
+      warningsShiro: [],
       timeRemaining: matchDuration,
       duration: matchDuration,
     });
@@ -79,6 +81,8 @@ export function generateBracket(
         scoreShiro: 0,
         penaltiesAka: [],
         penaltiesShiro: [],
+        warningsAka: [],
+        warningsShiro: [],
         timeRemaining: matchDuration,
         duration: matchDuration,
       });
@@ -103,7 +107,7 @@ export function generateBracket(
 export function advanceWinner(
   bracket: BracketState,
   matchId: number,
-  winnerId: number
+  winnerId: number,
 ): BracketState {
   const currentMatch = bracket.matches.find((m) => m.id === matchId);
   if (!currentMatch) return bracket;
@@ -120,7 +124,7 @@ export function advanceWinner(
   const nextPosition = Math.floor(currentMatch.position / 2);
 
   const nextMatch = bracket.matches.find(
-    (m) => m.round === nextRound && m.position === nextPosition
+    (m) => m.round === nextRound && m.position === nextPosition,
   );
 
   if (!nextMatch) {
@@ -137,7 +141,7 @@ export function advanceWinner(
           ...m,
           [isAka ? "competidorAka" : "competidorShiro"]: winner,
         }
-      : m
+      : m,
   );
 
   return {
@@ -157,10 +161,10 @@ export function getCurrentMatch(bracket: BracketState): Match | null {
  * Obtiene el ganador del torneo
  */
 export function getTournamentWinner(
-  bracket: BracketState
+  bracket: BracketState,
 ): CompetidorKumite | null {
   const finalMatch = bracket.matches.find(
-    (m) => m.round === bracket.rounds && m.status === "completed"
+    (m) => m.round === bracket.rounds && m.status === "completed",
   );
 
   if (!finalMatch || !finalMatch.winnerId) return null;
