@@ -2,7 +2,7 @@
   "app": {
     "title": "拳種館スコアボード",
     "subtitle": "空手道競技会の採点システム",
-    "version": "バージョン {{version}} - Tauri + React で開発"
+    "version": "バージョン {{version}}"
   },
   "navigation": {
     "home": "ホーム",

@@ -13,7 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useKumite } from '@/context/KumiteContext';
-import { generateBracket, getCurrentMatch, advanceWinner } from '@/utils/bracketUtils';
+import { generateBracket, getCurrentMatch } from '@/utils/bracketUtils';
 import { useTimer } from '@/hooks/useTimer';
 import AgregarCompetidor from './KumiteComponents/AgregarCompetidor';
 import BracketView from './KumiteComponents/BracketView';
@@ -286,17 +286,17 @@ export default function KumitePage() {
           ? currentMatch.competidorAka
           : currentMatch.competidorShiro;
 
-      // Marcar match como completado
+      // Un solo dispatch atómico para declarar ganador y avanzar bracket
       dispatch({
-        type: 'UPDATE_MATCH',
+        type: 'DECLARE_WINNER',
         payload: {
-          id: currentMatch.id,
-          data: { status: 'completed', winnerId },
-        },
+          matchId: currentMatch.id,
+          winnerId,
+          reason: reason || undefined
+        }
       });
 
-      // Detener timer
-      dispatch({ type: 'STOP_TIMER' });
+      // Detener timer local
       pause();
 
       // Preparar y mostrar modal de ganador
@@ -309,28 +309,9 @@ export default function KumitePage() {
       });
       setShowWinnerModal(true);
 
-      // Avanzar ganador al siguiente round
-      const updatedBracket = advanceWinner(state.bracket, currentMatch.id, winnerId);
-      dispatch({ type: 'GENERATE_BRACKET', payload: updatedBracket });
-
-      // Buscar el siguiente match pendiente
-      const nextMatch = updatedBracket.matches.find(
-        (m) => m.status === 'pending' && m.competidorAka && m.competidorShiro
+      toast.success(
+        t('kumite:messages.winnerDeclared', { winner: winner?.Nombre || '' })
       );
-
-      if (nextMatch) {
-        toast.success(
-          t('kumite:messages.winnerDeclared', { winner: winner?.Nombre || '' })
-        );
-      } else {
-        // No hay más matches, el torneo terminó
-        dispatch({ type: 'SET_CURRENT_MATCH', payload: null });
-        toast.success(
-          t('kumite:messages.winnerDeclared', { winner: winner?.Nombre || '' }) +
-          ' - ' +
-          t('kumite:messages.tournamentEnded')
-        );
-      }
     }
   };
 
@@ -945,6 +926,10 @@ export default function KumitePage() {
               scoreShiro={winnerInfo.scoreShiro}
               side={winnerInfo.side}
               reason={winnerInfo.reason}
+              hasNextMatch={state.bracket?.matches.some(
+                (m) => m.status === 'pending' && m.competidorAka && m.competidorShiro
+              )}
+              onNextMatch={handleNextMatch}
             />
           )}
           <EnchoSenModal

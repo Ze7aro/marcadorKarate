@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "marcador-karate",
   "version": "0.1.0",
-  "identifier": "com.jhm_l.marcador-karate",
+  "identifier": "com.jhml.marcador-karate",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",

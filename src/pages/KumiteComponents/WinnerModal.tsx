@@ -18,6 +18,8 @@ interface WinnerModalProps {
     scoreShiro: number;
     side: 'aka' | 'shiro' | null;
     reason?: 'disqualification' | 'hantei' | null;
+    onNextMatch?: () => void;
+    hasNextMatch?: boolean;
 }
 
 export default function WinnerModal({
@@ -28,6 +30,8 @@ export default function WinnerModal({
     scoreShiro,
     side,
     reason,
+    onNextMatch,
+    hasNextMatch,
 }: WinnerModalProps) {
     const { t } = useTranslation(['kumite', 'common']);
 
@@ -127,16 +131,31 @@ export default function WinnerModal({
                         </motion.div>
                     </div>
                 </ModalBody>
-                <ModalFooter className="pb-8 justify-center">
+                <ModalFooter className="pb-8 justify-center gap-4">
                     <Button
-                        color="primary"
+                        color="default"
                         size="lg"
-                        variant="shadow"
-                        className="px-12 font-bold text-lg"
+                        variant="flat"
+                        className="px-8 font-bold"
                         onPress={onClose}
                     >
                         {t('common:buttons.close')}
                     </Button>
+
+                    {hasNextMatch && onNextMatch && (
+                        <Button
+                            color="primary"
+                            size="lg"
+                            variant="shadow"
+                            className="px-12 font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600"
+                            onPress={() => {
+                                onNextMatch();
+                                onClose();
+                            }}
+                        >
+                            {t('kumite:messages.nextMatch')} →
+                        </Button>
+                    )}
                 </ModalFooter>
             </ModalContent>
         </Modal>

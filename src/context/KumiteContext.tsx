@@ -10,6 +10,7 @@ import {
   PenaltyType,
   WarningType,
 } from '@/types/events';
+import { advanceWinner } from '@/utils/bracketUtils';
 
 interface KumiteState {
   competidores: CompetidorKumite[];
@@ -51,6 +52,8 @@ type KumiteAction =
   | { type: 'SET_DISPLAY_WINDOW'; payload: boolean }
   | { type: 'SYNC_COMPLETE'; payload: number }
   | { type: 'START_ENCHO_SEN'; payload: { matchId: number; time: number } }
+  | { type: 'DECLARE_WINNER'; payload: { matchId: number; winnerId: number; reason?: string } }
+  | { type: 'LOAD_STATE'; payload: Partial<KumiteState> }
   | { type: 'RESET_ALL' };
 
 const initialState: KumiteState = {
@@ -106,7 +109,15 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
         },
       };
     case 'SET_CURRENT_MATCH':
-      return { ...state, currentMatchId: action.payload };
+      return {
+        ...state,
+        currentMatchId: action.payload,
+        bracket: state.bracket
+          ? { ...state.bracket, currentMatchId: action.payload }
+          : null
+      };
+    case 'LOAD_STATE':
+      return { ...state, ...action.payload };
     case 'UPDATE_TIMER':
       if (!state.bracket) return state;
       return {
@@ -121,7 +132,19 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
         },
       };
     case 'START_TIMER':
-      return { ...state, isTimerRunning: true };
+      if (!state.bracket || !state.currentMatchId) return { ...state, isTimerRunning: true };
+      return {
+        ...state,
+        isTimerRunning: true,
+        bracket: {
+          ...state.bracket,
+          matches: state.bracket.matches.map((m) =>
+            m.id === state.currentMatchId && m.status === 'pending'
+              ? { ...m, status: 'in_progress' }
+              : m
+          ),
+        }
+      };
     case 'STOP_TIMER':
       return { ...state, isTimerRunning: false };
     case 'ADD_SCORE':
@@ -248,6 +271,22 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
         },
         isTimerRunning: false, // Wait for manual start
       };
+    case 'DECLARE_WINNER':
+      if (!state.bracket) return state;
+      const bracketWithWinner = {
+        ...state.bracket,
+        matches: state.bracket.matches.map((m) =>
+          m.id === action.payload.matchId
+            ? { ...m, status: 'completed' as const, winnerId: action.payload.winnerId }
+            : m
+        ),
+      };
+      const finalBracket = advanceWinner(bracketWithWinner, action.payload.matchId, action.payload.winnerId);
+      return {
+        ...state,
+        bracket: finalBracket,
+        isTimerRunning: false,
+      };
     default:
       return state;
   }
@@ -264,17 +303,31 @@ export const KumiteProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [state, dispatch] = useReducer(kumiteReducer, initialState);
 
   // Persistencia con localStorage
-  const [_storedCompetidores, setStoredCompetidores] = useLocalStorage<CompetidorKumite[]>(
+  const [storedCompetidores, setStoredCompetidores] = useLocalStorage<CompetidorKumite[]>(
     'kumiteCompetidores',
     []
   );
-  const [_storedBracket, setStoredBracket] = useLocalStorage<BracketState | null>(
+  const [storedBracket, setStoredBracket] = useLocalStorage<BracketState | null>(
     'kumiteBracket',
     null
   );
-  const [_storedDuration, setStoredDuration] = useLocalStorage<number>('kumiteDuration', 120);
-  const [_storedCategoria, setStoredCategoria] = useLocalStorage<string>('kumiteCategoria', '');
-  const [_storedArea, setStoredArea] = useLocalStorage<string>('kumiteArea', '');
+  const [storedDuration, setStoredDuration] = useLocalStorage<number>('kumiteDuration', 120);
+  const [storedCategoria, setStoredCategoria] = useLocalStorage<string>('kumiteCategoria', '');
+  const [storedArea, setStoredArea] = useLocalStorage<string>('kumiteArea', '');
+
+  // Cargar estado inicial desde localStorage
+  useEffect(() => {
+    dispatch({
+      type: 'LOAD_STATE',
+      payload: {
+        competidores: storedCompetidores,
+        bracket: storedBracket,
+        matchDuration: storedDuration,
+        categoria: storedCategoria,
+        area: storedArea,
+      },
+    });
+  }, []); // Solo al montar
 
   // Comunicación cross-platform
   const postKumiteMessage = useCrossPlatformChannel<KumiteStateSync>(

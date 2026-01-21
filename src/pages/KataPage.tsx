@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Button, Card, CardBody, Input, Select, SelectItem } from "@heroui/react";
+import { Button, Card, CardBody, Input, Select, SelectItem, Accordion, AccordionItem } from "@heroui/react";
 import { Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/react";
 import { useKata } from "@/context/KataContext";
+import { calculateKataMetrics, compareCompetitors } from "@/utils/kataUtils";
 import { showToast } from "@/utils/toast";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -247,6 +248,71 @@ export default function KataPage() {
     }
   };
 
+  // Función para iniciar desempate
+  const handleStartTieBreaker = (tiedCompetitorIds: number[]) => {
+    // 1. Archivar ronda actual
+    const currentRoundNumber = state.previousRounds.length + 1;
+    const roundToArchive = {
+      id: currentRoundNumber,
+      nombre: `Ronda ${currentRoundNumber}`,
+      competidores: [...state.competidores], // Copia profunda de competidores actuales
+      fecha: new Date().toISOString()
+    };
+    dispatch({ type: 'ARCHIVE_ROUND', payload: roundToArchive });
+
+    // 2. Preparar nueva ronda con competidores empatados
+    const tiedCompetitors = state.competidores
+      .filter(c => tiedCompetitorIds.includes(c.id))
+      .map(c => ({
+        ...c,
+        PuntajeFinal: null,
+        PuntajesJueces: [],
+        previousScore: c.PuntajeFinal // Opcional: guardar puntaje anterior si se desea mostrar
+      }));
+
+    dispatch({ type: 'SET_COMPETIDORES', payload: tiedCompetitors });
+    setShowResultados(false);
+    showToast.success(`Ronda ${currentRoundNumber} archivada. Iniciando desempate.`);
+  };
+
+  // Función para avanzar a la siguiente ronda (cut off)
+  const handleAdvanceRound = (cutoff: number) => {
+    // 1. Calcular métricas y ordenar
+    const competidoresConMetricas = state.competidores
+      .filter(c => c.PuntajeFinal !== null && !c.Kiken)
+      .map(c => ({
+        competidor: c,
+        metrics: calculateKataMetrics((c.PuntajesJueces || []).map(p => p || '0'), 5)
+      }));
+
+    const sorted = competidoresConMetricas
+      .sort((a, b) => compareCompetitors(a.metrics, b.metrics))
+      .map(w => w.competidor);
+
+    const winners = sorted.slice(0, cutoff);
+
+    // 2. Archivar ronda actual
+    const currentRoundNumber = state.previousRounds.length + 1;
+    const roundToArchive = {
+      id: currentRoundNumber,
+      nombre: `Ronda ${currentRoundNumber}`,
+      competidores: [...state.competidores],
+      fecha: new Date().toISOString()
+    };
+    dispatch({ type: 'ARCHIVE_ROUND', payload: roundToArchive });
+
+    // 3. Preparar nueva ronda con los ganadores
+    const nextRoundCompetitors = winners.map(c => ({
+      ...c,
+      PuntajeFinal: null,
+      PuntajesJueces: []
+    }));
+
+    dispatch({ type: 'SET_COMPETIDORES', payload: nextRoundCompetitors });
+    setShowResultados(false);
+    showToast.success(`Siguiente ronda iniciada con ${winners.length} competidores`);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -329,6 +395,69 @@ export default function KataPage() {
             </Button>
           </div>
         </div>
+
+        {/* Historial de Rondas Anteriores (Comprimido) */}
+        {state.previousRounds && state.previousRounds.length > 0 && (
+          <div className="mb-6 space-y-4">
+            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-300">Historial de Rondas</h2>
+            {state.previousRounds.map((ronda) => (
+              <Card key={ronda.id} className="bg-gray-100 dark:bg-gray-800">
+                <CardBody className="p-0"> {/* Padding 0 para controlar mejor el layout interno */}
+                  <div className="flex flex-col">
+                    {/* Header de la Ronda (Siempre visible) */}
+                    <div className="flex justify-between items-center p-4">
+                      <div>
+                        <h3 className="text-lg font-bold">{ronda.nombre}</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(ronda.fecha).toLocaleTimeString()} - {ronda.competidores.length} Competidores
+                        </p>
+                      </div>
+                      <Accordion>
+                        <AccordionItem
+                          key="1"
+                          aria-label={`Ver detalles de ${ronda.nombre}`}
+                          title={<span className="text-primary text-sm font-semibold">Ver Detalles / Descomprimir</span>}
+                        >
+                          {/* Tabla Detallada (Contenido del acordeón) */}
+                          <div className="mt-2 overflow-x-auto">
+                            <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                <tr>
+                                  <th scope="col" className="px-4 py-3">#</th>
+                                  <th scope="col" className="px-4 py-3">Nombre</th>
+                                  <th scope="col" className="px-4 py-3">Puntajes</th>
+                                  <th scope="col" className="px-4 py-3 text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {ronda.competidores.map((comp, idx) => (
+                                  <tr key={comp.id} className="border-b dark:border-gray-700">
+                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{idx + 1}</td>
+                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{comp.Nombre}</td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex gap-1">
+                                        {comp.PuntajesJueces?.map((p, i) => (
+                                          <span key={i} className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">{p}</span>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-bold text-green-600 dark:text-green-400">
+                                      {comp.PuntajeFinal?.toFixed(2)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </AccordionItem>
+                      </Accordion>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Configuración */}
         <Card className="mb-6">
@@ -417,7 +546,7 @@ export default function KataPage() {
         <Card>
           <CardBody>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Competidores</h2>
+              <h2 className="text-2xl font-bold">Ronda Actual: Competidores</h2>
               <Button
                 color="primary"
                 onPress={() => setShowAgregarCompetidor(true)}
@@ -648,8 +777,20 @@ export default function KataPage() {
           competidores={state.competidores}
           categoria={state.categoria}
           area={state.area}
+          currentRound={state.previousRounds.length + 1}
+          initialCompetitorCount={state.previousRounds.length > 0 ? state.previousRounds[0].competidores.length : state.competidores.length}
           onExportExcel={handleExportExcel}
           onExportPDF={handleExportPDF}
+          onStartTieBreaker={(tiedIds) => {
+            if (confirm('¿Estás seguro de iniciar una nueva ronda de desempate? La ronda actual se archivará.')) {
+              handleStartTieBreaker(tiedIds);
+            }
+          }}
+          onNextRound={(cutoff) => {
+            if (confirm(`¿Estás seguro de pasar a la siguiente ronda con los mejores ${cutoff} competidores?`)) {
+              handleAdvanceRound(cutoff);
+            }
+          }}
         />
       </div>
     </div>

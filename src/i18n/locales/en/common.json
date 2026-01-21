@@ -2,7 +2,7 @@
   "app": {
     "title": "Kenshukan Scoreboard",
     "subtitle": "Scoring system for Karate Do competitions",
-    "version": "Version {{version}} - Built with Tauri + React"
+    "version": "Version {{version}}"
   },
   "navigation": {
     "home": "Home",

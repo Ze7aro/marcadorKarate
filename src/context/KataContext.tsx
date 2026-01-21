@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useCrossPlatformChannel } from '@/hooks/useCrossPlatformChannel';
 import { Competidor, KataStateSync, KATA_EVENTS } from '@/types/events';
@@ -20,6 +20,14 @@ interface KataState {
   submitted: boolean;
   displayWindowOpen: boolean;
   lastSyncTimestamp: number;
+  previousRounds: Round[];
+}
+
+export interface Round {
+  id: number;
+  nombre: string;
+  competidores: Competidor[];
+  fecha: string;
 }
 
 type KataAction =
@@ -40,6 +48,7 @@ type KataAction =
   | { type: 'SET_SUBMITTED'; payload: boolean }
   | { type: 'SET_DISPLAY_WINDOW'; payload: boolean }
   | { type: 'SYNC_COMPLETE'; payload: number }
+  | { type: 'ARCHIVE_ROUND'; payload: Round }
   | { type: 'RESET_ALL' };
 
 const initialState: KataState = {
@@ -58,6 +67,7 @@ const initialState: KataState = {
   submitted: false,
   displayWindowOpen: false,
   lastSyncTimestamp: 0,
+  previousRounds: [],
 };
 
 function kataReducer(state: KataState, action: KataAction): KataState {
@@ -118,6 +128,8 @@ function kataReducer(state: KataState, action: KataAction): KataState {
       return { ...state, displayWindowOpen: action.payload };
     case 'SYNC_COMPLETE':
       return { ...state, lastSyncTimestamp: action.payload };
+    case 'ARCHIVE_ROUND':
+      return { ...state, previousRounds: [...state.previousRounds, action.payload] };
     case 'RESET_ALL':
       return initialState;
     default:
@@ -146,6 +158,7 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [_storedBase, setStoredBase] = useLocalStorage<number>('kataBase', 7);
   const [_storedCategoria, setStoredCategoria] = useLocalStorage<string>('kataCategoria', '');
   const [_storedArea, setStoredArea] = useLocalStorage<string>('kataArea', '');
+  const [_storedPreviousRounds, setStoredPreviousRounds] = useLocalStorage<Round[]>('kataPreviousRounds', []);
 
   // Comunicación cross-platform
   const postKataMessage = useCrossPlatformChannel<KataStateSync>(
@@ -180,24 +193,75 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setStoredArea(state.area);
   }, [state.area, setStoredArea]);
 
+  useEffect(() => {
+    setStoredPreviousRounds(state.previousRounds);
+  }, [state.previousRounds, setStoredPreviousRounds]);
+
+  // Referencia para detectar cambios en los competidores
+  const prevCompetidores = useRef<Competidor[]>([]);
+
   // Sincronizar con ventana de proyección (con debounce para evitar spam)
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      const competidorActual = state.competidores.find((c) => !c.PuntajeFinal);
+      // 1. Encontrar al primer competidor que NO tiene puntaje final ni está descalificado (Kiken)
+      // Este es el que debería estar "activo" normalmente.
+      const nextActive = state.competidores.find((c) => !c.PuntajeFinal && !c.Kiken);
+
+      // 2. Detectar si alguien acaba de terminar (tenía null y ahora tiene puntaje)
+      const justFinished = state.competidores.find(c =>
+        c.PuntajeFinal !== null &&
+        c.PuntajeFinal !== undefined &&
+        prevCompetidores.current.find(p => p.id === c.id)?.PuntajeFinal === null
+      );
+
+      // Si alguien acaba de terminar, priorizamos mostrar su resultado final
+      // Si no, mostramos al siguiente activo
+      const competitorToSync = justFinished || nextActive;
+
+      if (!competitorToSync) {
+        // No hay nadie que mostrar (quizás terminó la categoría)
+        // Enviar un paquete vacío o el último estado conocido
+        return;
+      }
+
+      // Calcular métricas para la proyección si tenemos todos los puntajes
+      const pValidos = (competitorToSync.PuntajesJueces || [])
+        .map(p => parseFloat(p || '0'))
+        .filter(p => !isNaN(p) && p > 0);
+
+      let low = '';
+      let high = '';
+
+      if (pValidos.length === 5) {
+        const sorted = [...pValidos].sort((a, b) => a - b);
+        low = sorted[0].toFixed(2);
+        high = sorted[4].toFixed(2);
+      } else if (pValidos.length === 3) {
+        const sorted = [...pValidos].sort((a, b) => a - b);
+        low = sorted[0].toFixed(2);
+        high = sorted[2].toFixed(2);
+      }
 
       const dataParaEnviar: KataStateSync = {
-        competidor: competidorActual?.Nombre || '',
+        competidor: competitorToSync.Nombre,
+        id: competitorToSync.id,
         categoria: state.categoria,
-        puntajes: state.judges,
-        puntajeFinal: state.score,
-        puntajeMenor: state.lowScore,
-        puntajeMayor: state.highScore,
+        // Usar los puntajes del competidor seleccionado para sync
+        puntajes: (competitorToSync.PuntajesJueces || []).map(p => p || ''),
+        // Priorizar el puntaje final del objeto del competidor
+        puntajeFinal: competitorToSync.PuntajeFinal?.toFixed(2) || state.score,
+        puntajeMenor: low || state.lowScore,
+        puntajeMayor: high || state.highScore,
         competidores: state.competidores,
         area: state.area,
+        isFinal: !!justFinished
       };
 
       postKataMessage(dataParaEnviar);
-      console.log('Kata state synced at:', new Date().toISOString());
+      console.log('Kata state synced at:', new Date().toISOString(), 'isFinal:', !!justFinished);
+
+      // Actualizar la referencia para la siguiente comparación
+      prevCompetidores.current = state.competidores;
     }, 300); // Debounce de 300ms
 
     return () => clearTimeout(debounceTimer);

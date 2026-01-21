@@ -2,7 +2,7 @@
   "app": {
     "title": "Marcador Kenshukan",
     "subtitle": "Sistema de puntuación para competencias de Karate Do",
-    "version": "Versión {{version}} - Desarrollado con Tauri + React"
+    "version": "Versión {{version}}"
   },
   "navigation": {
     "home": "Inicio",

@@ -1,4 +1,4 @@
-import { Button, Card, CardBody } from "@heroui/react";
+import { Card, CardBody } from "@heroui/react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import LanguageSelector from "@/components/LanguageSelector";
@@ -64,14 +64,6 @@ export default function IndexPage() {
         </div>
 
         <div className="mt-8 text-center">
-          <Button
-            color="secondary"
-            variant="flat"
-            onPress={() => navigate("/estadisticas")}
-            className="mb-4"
-          >
-            {t("common:navigation.stats")}
-          </Button>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t("common:app.version", { version: "0.1.0" })}
           </p>

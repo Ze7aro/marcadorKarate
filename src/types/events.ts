@@ -29,6 +29,7 @@ export interface KataScoreUpdate {
 
 export interface KataStateSync {
   competidor: string;
+  id?: number;
   categoria: string;
   puntajes: string[];
   puntajeFinal: string;
@@ -36,6 +37,7 @@ export interface KataStateSync {
   puntajeMayor: string;
   competidores: Competidor[];
   area?: string;
+  isFinal?: boolean;
 }
 
 export interface TauriEventPayload<T> {
