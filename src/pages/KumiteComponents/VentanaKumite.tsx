@@ -4,6 +4,7 @@ import { useCrossPlatformChannel } from '@/hooks/useCrossPlatformChannel';
 import { KumiteStateSync, KUMITE_EVENTS } from '@/types/events';
 import { Card, CardBody, Chip, Divider } from '@heroui/react';
 import WinnerModal from './WinnerModal';
+import '@/styles/projection.css';
 
 export default function VentanaKumite() {
   const { t } = useTranslation(['kumite', 'common']);
@@ -16,6 +17,14 @@ export default function VentanaKumite() {
     setIsConnected(true);
     console.log('Kumite display received update:', data);
   });
+
+  useEffect(() => {
+    document.body.classList.add('projection-body', 'projection-kumite');
+
+    return () => {
+      document.body.classList.remove('projection-body', 'projection-kumite');
+    };
+  }, []);
 
   useEffect(() => {
     // Marcar como conectado
@@ -36,7 +45,7 @@ export default function VentanaKumite() {
   // Si no hay datos, mostrar pantalla de espera
   if (!kumiteData || !kumiteData.currentMatch) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-8">
+      <div className="projection-root bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-8">
         <div className="text-center">
           <div className="text-8xl mb-8">⚔️</div>
           <h1 className="text-5xl font-bold text-white mb-4">
@@ -58,7 +67,7 @@ export default function VentanaKumite() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-900 via-gray-900 to-blue-900 p-8">
+    <div className="projection-root bg-gradient-to-br from-red-900 via-gray-900 to-blue-900 p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header con categoría y área */}
         <div className="text-center mb-8">

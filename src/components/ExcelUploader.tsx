@@ -60,29 +60,28 @@ export default function ExcelUploader({ onCompetidoresLoaded, page }: ExcelUploa
   };
 
   return (
-    <>
-      <Card>
-        <CardBody>
-          <div className={`flex flex-col ${page === 'kata' ? 'md:flex-row' : 'flex-col'}  items-center justify-between gap-4`}>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold mb-2">Importar desde Excel</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Carga una lista de competidores desde un archivo Excel
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                color="primary"
-                size="sm"
-                onPress={handleFileSelect}
-                isLoading={loading}
-              >
-                Seleccionar Archivo
-              </Button>
-            </div>
+    <Card className="app-panel rounded-[1.75rem]">
+      <CardBody className="p-6">
+        <div className={`flex flex-col ${page === 'kata' ? 'md:flex-row' : 'flex-col'} items-center justify-between gap-4`}>
+          <div className="flex-1">
+            <p className="app-label mb-3">Importación</p>
+            <h3 className="text-xl font-bold mb-2 text-slate-50">Importar desde Excel</h3>
+            <p className="text-sm text-slate-400">
+              Carga una lista de competidores desde un archivo Excel
+            </p>
           </div>
-        </CardBody>
-      </Card>
-    </>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onPress={handleFileSelect}
+              isLoading={loading}
+              className="app-button-primary font-semibold"
+            >
+              Seleccionar Archivo
+            </Button>
+          </div>
+        </div>
+      </CardBody>
+    </Card>
   );
 }

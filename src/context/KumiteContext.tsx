@@ -30,6 +30,7 @@ interface KumiteState {
 
 type KumiteAction =
   | { type: 'SET_COMPETIDORES'; payload: CompetidorKumite[] }
+  | { type: 'LOAD_CATEGORY'; payload: { competidores: CompetidorKumite[]; categoria: string } }
   | { type: 'ADD_COMPETIDOR'; payload: CompetidorKumite }
   | { type: 'REMOVE_COMPETIDOR'; payload: number }
   | { type: 'SET_CATEGORIA'; payload: { categoria: string; titulo: string } }
@@ -76,6 +77,18 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
   switch (action.type) {
     case 'SET_COMPETIDORES':
       return { ...state, competidores: action.payload };
+    case 'LOAD_CATEGORY':
+      return {
+        ...state,
+        competidores: action.payload.competidores,
+        categoria: action.payload.categoria,
+        tituloCategoria: action.payload.categoria,
+        bracket: null,
+        currentMatchId: null,
+        isTimerRunning: false,
+        showBracketDialog: false,
+        showResultsDialog: false,
+      };
     case 'ADD_COMPETIDOR':
       return { ...state, competidores: [...state.competidores, action.payload] };
     case 'REMOVE_COMPETIDOR':

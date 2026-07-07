@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { I18nProvider } from "@/context/I18nProvider";
 import "@/i18n/config";
 import "@/styles/globals.css";
+import "@/styles/app-theme.css";
 
 // Registrar service worker solo en producción web (no Tauri)
 if ('serviceWorker' in navigator && import.meta.env.PROD && !(window as any).__TAURI__) {

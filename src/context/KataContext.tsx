@@ -32,6 +32,7 @@ export interface Round {
 
 type KataAction =
   | { type: 'SET_COMPETIDORES'; payload: Competidor[] }
+  | { type: 'LOAD_CATEGORY'; payload: { competidores: Competidor[]; categoria: string } }
   | { type: 'ADD_COMPETIDOR'; payload: Competidor }
   | { type: 'UPDATE_COMPETIDOR'; payload: { id: number; data: Partial<Competidor> } }
   | { type: 'SET_JUDGES'; payload: string[] }
@@ -74,6 +75,20 @@ function kataReducer(state: KataState, action: KataAction): KataState {
   switch (action.type) {
     case 'SET_COMPETIDORES':
       return { ...state, competidores: action.payload };
+    case 'LOAD_CATEGORY':
+      return {
+        ...state,
+        competidores: action.payload.competidores,
+        categoria: action.payload.categoria,
+        tituloCategoria: action.payload.categoria,
+        judges: [],
+        lowScore: '',
+        highScore: '',
+        score: '',
+        submitted: false,
+        previousRounds: [],
+        showResults: false,
+      };
     case 'ADD_COMPETIDOR':
       return { ...state, competidores: [...state.competidores, action.payload] };
     case 'UPDATE_COMPETIDOR':

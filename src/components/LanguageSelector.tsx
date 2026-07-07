@@ -32,9 +32,16 @@ export default function LanguageSelector() {
         const selected = Array.from(keys)[0] as string;
         handleLanguageChange(selected);
       }}
-      className="max-w-xs"
+      className="app-dark-select max-w-xs"
       size="sm"
       aria-label="Select language"
+      classNames={{
+        trigger: "min-h-12 rounded-2xl bg-[rgba(12,24,43,0.82)] text-slate-100 shadow-none",
+        value: "text-slate-100",
+        label: "text-slate-400",
+        selectorIcon: "text-slate-400",
+        popoverContent: "bg-slate-900 text-slate-100",
+      }}
     >
       {languages.map((lang) => (
         <SelectItem key={lang.code}>

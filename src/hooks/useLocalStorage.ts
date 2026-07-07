@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Hook para gestionar estado persistente en localStorage
- * Sincroniza automáticamente entre tabs/ventanas usando eventos personalizados
+ * Sincroniza automaticamente entre tabs/ventanas usando eventos personalizados
  *
  * @param key - Clave de localStorage
  * @param initialValue - Valor inicial si no existe en localStorage
@@ -12,7 +12,6 @@ export function useLocalStorage<T>(
   key: string,
   initialValue: T
 ): [T, (value: T | ((val: T) => T)) => void, () => void] {
-  // Estado para almacenar el valor
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === 'undefined') {
       return initialValue;
@@ -27,43 +26,37 @@ export function useLocalStorage<T>(
     }
   });
 
-  // Función para actualizar el valor
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
       try {
-        // Permitir que value sea una función para tener la misma API que useState
-        const valueToStore = value instanceof Function ? value(storedValue) : value;
+        setStoredValue((currentValue) => {
+          const valueToStore =
+            value instanceof Function ? value(currentValue) : value;
 
-        // Guardar estado
-        setStoredValue(valueToStore);
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem(key, JSON.stringify(valueToStore));
+            window.dispatchEvent(
+              new CustomEvent('local-storage', {
+                detail: { key, value: valueToStore },
+              })
+            );
+          }
 
-        // Guardar en localStorage
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(key, JSON.stringify(valueToStore));
-
-          // Emitir evento personalizado para sincronizar entre ventanas
-          window.dispatchEvent(
-            new CustomEvent('local-storage', {
-              detail: { key, value: valueToStore },
-            })
-          );
-        }
+          return valueToStore;
+        });
       } catch (error) {
         console.error(`Error setting localStorage key "${key}":`, error);
       }
     },
-    [key, storedValue]
+    [key]
   );
 
-  // Función para remover el valor
   const removeValue = useCallback(() => {
     try {
       setStoredValue(initialValue);
 
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(key);
-
-        // Emitir evento de eliminación
         window.dispatchEvent(
           new CustomEvent('local-storage', {
             detail: { key, value: undefined },
@@ -75,11 +68,9 @@ export function useLocalStorage<T>(
     }
   }, [key, initialValue]);
 
-  // Escuchar cambios en storage (desde otras tabs)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent | CustomEvent) => {
       if (e instanceof StorageEvent) {
-        // Evento nativo de storage (otras tabs)
         if (e.key === key && e.newValue !== null) {
           try {
             setStoredValue(JSON.parse(e.newValue));
@@ -88,15 +79,13 @@ export function useLocalStorage<T>(
           }
         }
       } else if ('detail' in e) {
-        // Evento personalizado (misma ventana, otras instancias)
-        const detail = e.detail as { key: string; value: any };
+        const detail = e.detail as { key: string; value: T | undefined };
         if (detail.key === key) {
           setStoredValue(detail.value !== undefined ? detail.value : initialValue);
         }
       }
     };
 
-    // Escuchar ambos tipos de eventos
     window.addEventListener('storage', handleStorageChange as EventListener);
     window.addEventListener('local-storage', handleStorageChange as EventListener);
 

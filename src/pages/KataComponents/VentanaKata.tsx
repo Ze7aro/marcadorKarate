@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useCrossPlatformChannel } from '@/hooks/useCrossPlatformChannel';
 import { KataStateSync, KATA_EVENTS } from '@/types/events';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import '@/styles/projection.css';
 
 export default function VentanaKata() {
   const [data, setData] = useState<KataStateSync>({
@@ -68,6 +69,14 @@ export default function VentanaKata() {
 
   // Keyboard shortcuts para fullscreen (F11)
   useEffect(() => {
+    document.body.classList.add('projection-body', 'projection-kata');
+
+    return () => {
+      document.body.classList.remove('projection-body', 'projection-kata');
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKeyPress = async (event: KeyboardEvent) => {
       if (event.key === 'F11') {
         event.preventDefault();
@@ -95,7 +104,7 @@ export default function VentanaKata() {
   }, [isFullscreen]);
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-100 p-6 font-sans">
+    <div className="projection-root bg-[#0f172a] text-slate-100 p-6 font-sans">
       {/* Indicador de conexión */}
       <div className="absolute top-4 right-4 flex items-center gap-2 z-50">
         <div
@@ -122,7 +131,7 @@ export default function VentanaKata() {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+            <div className="projection-scrollbar flex-1 overflow-y-auto p-4 space-y-2">
               {data.competidores && data.competidores.length > 0 ? (
                 // Ordenar: primero los que tienen puntaje (por ranking), luego los que no (por orden original)
                 [...data.competidores]
@@ -294,22 +303,6 @@ export default function VentanaKata() {
           </div>
         </div>
       </div>
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(51, 65, 85, 0.5);
-          border-radius: 20px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(51, 65, 85, 0.8);
-        }
-      `}</style>
     </div>
   );
 }

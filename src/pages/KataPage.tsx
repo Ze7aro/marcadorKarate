@@ -1,15 +1,28 @@
 import { useState } from "react";
-import { Button, Card, CardBody, Input, Select, SelectItem, Accordion, AccordionItem } from "@heroui/react";
-import { Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/react";
+import {
+  Button,
+  Card,
+  CardBody,
+  Input,
+  Select,
+  SelectItem,
+  Accordion,
+  AccordionItem,
+} from "@heroui/react";
+import {
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
+} from "@heroui/react";
 import { useKata } from "@/context/KataContext";
 import { calculateKataMetrics, compareCompetitors } from "@/utils/kataUtils";
 import { showToast } from "@/utils/toast";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile } from '@tauri-apps/plugin-fs';
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
 import HistorialCompetencias from "@/components/HistorialCompetencias";
-import ExcelUploader from "@/components/ExcelUploader";
 import AgregarCompetidor from "@/pages/KataComponents/AgregarCompetidor";
 import ResultadosFinales from "@/pages/KataComponents/ResultadosFinales";
 import { CompetenciaKata, Competidor } from "@/types";
@@ -18,54 +31,68 @@ import { generateKataPDF } from "@/utils/pdfUtils";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PUNTUACIONES } from "@/utils/puntuaciones";
+import { useCategoryCatalog } from "@/hooks/useCategoryCatalog";
 
 export default function KataPage() {
   const navigate = useNavigate();
-  const { t } = useTranslation(['kumite', 'common']);
+  const { t } = useTranslation(["kumite", "common"]);
 
   const { state, dispatch } = useKata();
+  const { getByDiscipline } = useCategoryCatalog();
   const [showHistorial, setShowHistorial] = useState(false);
   const [showAgregarCompetidor, setShowAgregarCompetidor] = useState(false);
   const [showResultados, setShowResultados] = useState(false);
+  const kataCategories = getByDiscipline("kata");
 
-  const CANTIDADJUECES = [{ key: 3, label: '3 Jueces' }, { key: 5, label: '5 Jueces' }];
-  const PUNTACIONMEDIA = [{ key: 6, label: 'Media 6' }, { key: 7, label: 'Media 7' }, { key: 8, label: 'Media 8' }]
-  const AREAS = [{ key: 1, label: 'Area 1' }, { key: 2, label: 'Area 2' }, { key: 3, label: 'Area 3' }, { key: 4, label: 'Area 4' }];
-
+  const CANTIDADJUECES = [
+    { key: 3, label: "3 Jueces" },
+    { key: 5, label: "5 Jueces" },
+  ];
+  const PUNTACIONMEDIA = [
+    { key: 6, label: "Media 6" },
+    { key: 7, label: "Media 7" },
+    { key: 8, label: "Media 8" },
+  ];
+  const AREAS = [
+    { key: 1, label: "Area 1" },
+    { key: 2, label: "Area 2" },
+    { key: 3, label: "Area 3" },
+    { key: 4, label: "Area 4" },
+  ];
 
   // Función para abrir la ventana de proyección
   const handleOpenKataDisplay = async () => {
     try {
       // Verificar si la ventana ya existe
-      const existingWindow = await WebviewWindow.getByLabel('kata-display');
+      const existingWindow = await WebviewWindow.getByLabel("kata-display");
 
       if (existingWindow) {
         await existingWindow.setFocus();
-        showToast.success('Ventana de proyección ya está abierta');
+        showToast.success("Ventana de proyección ya está abierta");
         return;
       }
 
       // Crear nueva ventana usando el comando Rust
-      await invoke('open_kata_display');
+      await invoke("open_kata_display");
 
       // Actualizar estado
-      dispatch({ type: 'SET_DISPLAY_WINDOW', payload: true });
-      showToast.success('Ventana de proyección abierta');
+      dispatch({ type: "SET_DISPLAY_WINDOW", payload: true });
+      showToast.success("Ventana de proyección abierta");
     } catch (error) {
-      console.error('Error opening display window:', error);
-      showToast.error('Error al abrir ventana de proyección');
+      console.error("Error opening display window:", error);
+      showToast.error("Error al abrir ventana de proyección");
     }
   };
 
   // Función para cerrar la ventana de proyección
   const handleCloseKataDisplay = async () => {
     try {
-      await invoke('close_kata_display');
-      dispatch({ type: 'SET_DISPLAY_WINDOW', payload: false });
-      showToast.success('Ventana de proyección cerrada');
+      await invoke("close_kata_display");
+      dispatch({ type: "SET_DISPLAY_WINDOW", payload: false });
+      showToast.success("Ventana de proyección cerrada");
     } catch (error) {
-      console.error('Error closing display window:', error);
-      showToast.error('Error al cerrar ventana de proyección');
+      console.error("Error closing display window:", error);
+      showToast.error("Error al cerrar ventana de proyección");
     }
   };
 
@@ -89,9 +116,9 @@ export default function KataPage() {
 
   // Función para resetear todo
   const handleReset = () => {
-    if (confirm('¿Estás seguro de que quieres resetear todos los datos?')) {
-      dispatch({ type: 'RESET_ALL' });
-      showToast.success('Datos reseteados');
+    if (confirm("¿Estás seguro de que quieres resetear todos los datos?")) {
+      dispatch({ type: "RESET_ALL" });
+      showToast.success("Datos reseteados");
     }
   };
 
@@ -108,24 +135,56 @@ export default function KataPage() {
     }));
 
     // Actualizar estado
-    dispatch({ type: 'SET_COMPETIDORES', payload: competidores });
-    dispatch({ type: 'SET_AREA', payload: competencia.area });
-    dispatch({ type: 'SET_CATEGORIA', payload: { categoria: competencia.categoria, titulo: competencia.categoria } });
+    dispatch({ type: "SET_COMPETIDORES", payload: competidores });
+    dispatch({ type: "SET_AREA", payload: competencia.area });
+    dispatch({
+      type: "SET_CATEGORIA",
+      payload: {
+        categoria: competencia.categoria,
+        titulo: competencia.categoria,
+      },
+    });
 
-    showToast.success('Competencia cargada desde el historial');
+    showToast.success("Competencia cargada desde el historial");
   };
 
   // Función para cargar competidores desde Excel
-  const handleCompetidoresLoaded = (competidores: Competidor[], categoria: string) => {
-    dispatch({ type: 'SET_COMPETIDORES', payload: competidores });
-    dispatch({ type: 'SET_CATEGORIA', payload: { categoria, titulo: categoria } });
+  const selectedCategoryId =
+    kataCategories.find((item) => item.categoria === state.categoria)?.id || "";
+
+  const handleCategorySelection = (categoryId: string) => {
+    const selectedCategory = kataCategories.find(
+      (category) => category.id === categoryId,
+    );
+
+    if (!selectedCategory) {
+      return;
+    }
+
+    dispatch({
+      type: "LOAD_CATEGORY",
+      payload: {
+        categoria: selectedCategory.categoria,
+        competidores: selectedCategory.competidores.map(
+          (competidor, index) => ({
+            ...competidor,
+            id: index + 1,
+            Categoria: selectedCategory.categoria,
+            PuntajeFinal: null,
+            PuntajesJueces: [],
+            Kiken: false,
+          }),
+        ),
+      },
+    });
+    showToast.success(`Categoría ${selectedCategory.categoria} cargada`);
   };
 
   // Función para exportar a Excel
   const handleExportExcel = async () => {
     try {
       if (state.competidores.length === 0) {
-        showToast.error('No hay competidores para exportar');
+        showToast.error("No hay competidores para exportar");
         return;
       }
 
@@ -137,8 +196,8 @@ export default function KataPage() {
         defaultPath: fileName,
         filters: [
           {
-            name: 'Excel',
-            extensions: ['xlsx'],
+            name: "Excel",
+            extensions: ["xlsx"],
           },
         ],
       });
@@ -148,17 +207,17 @@ export default function KataPage() {
       // Generar Excel
       const excelBuffer = generateExcelFile(
         state.competidores,
-        state.categoria || 'Sin categoría',
-        state.area || 'Sin área'
+        state.categoria || "Sin categoría",
+        state.area || "Sin área",
       );
 
       // Guardar archivo
       await writeFile(filePath, new Uint8Array(excelBuffer));
 
-      showToast.success('Archivo Excel exportado exitosamente');
+      showToast.success("Archivo Excel exportado exitosamente");
     } catch (error) {
-      console.error('Error exporting Excel:', error);
-      showToast.error('Error al exportar a Excel');
+      console.error("Error exporting Excel:", error);
+      showToast.error("Error al exportar a Excel");
     }
   };
 
@@ -166,7 +225,7 @@ export default function KataPage() {
   const handleExportPDF = async () => {
     try {
       if (state.competidores.length === 0) {
-        showToast.error('No hay competidores para exportar');
+        showToast.error("No hay competidores para exportar");
         return;
       }
 
@@ -178,8 +237,8 @@ export default function KataPage() {
         defaultPath: fileName,
         filters: [
           {
-            name: 'PDF',
-            extensions: ['pdf'],
+            name: "PDF",
+            extensions: ["pdf"],
           },
         ],
       });
@@ -189,18 +248,18 @@ export default function KataPage() {
       // Generar PDF
       const pdfBuffer = generateKataPDF(
         state.competidores,
-        state.categoria || 'Sin categoría',
-        state.area || 'Sin área',
-        new Date().toLocaleDateString('es-ES')
+        state.categoria || "Sin categoría",
+        state.area || "Sin área",
+        new Date().toLocaleDateString("es-ES"),
       );
 
       // Guardar archivo
       await writeFile(filePath, new Uint8Array(pdfBuffer));
 
-      showToast.success('Archivo PDF exportado exitosamente');
+      showToast.success("Archivo PDF exportado exitosamente");
     } catch (error) {
-      console.error('Error exporting PDF:', error);
-      showToast.error('Error al exportar a PDF');
+      console.error("Error exporting PDF:", error);
+      showToast.error("Error al exportar a PDF");
     }
   };
 
@@ -216,16 +275,14 @@ export default function KataPage() {
       Kiken: false,
     };
 
-    dispatch({ type: 'ADD_COMPETIDOR', payload: nuevoCompetidor });
+    dispatch({ type: "ADD_COMPETIDOR", payload: nuevoCompetidor });
   };
-
-
 
   // Función para descalificar (Kiken)
   const handleKiken = (competidor: Competidor) => {
     if (confirm(`¿Descalificar a ${competidor.Nombre}?`)) {
       dispatch({
-        type: 'UPDATE_COMPETIDOR',
+        type: "UPDATE_COMPETIDOR",
         payload: {
           id: competidor.id,
           data: {
@@ -235,16 +292,16 @@ export default function KataPage() {
           },
         },
       });
-      showToast.success('Competidor descalificado');
+      showToast.success("Competidor descalificado");
     }
   };
 
   // Función para eliminar competidor
   const handleEliminarCompetidor = (id: number) => {
-    if (confirm('¿Eliminar este competidor?')) {
+    if (confirm("¿Eliminar este competidor?")) {
       const nuevosCompetidores = state.competidores.filter((c) => c.id !== id);
-      dispatch({ type: 'SET_COMPETIDORES', payload: nuevosCompetidores });
-      showToast.success('Competidor eliminado');
+      dispatch({ type: "SET_COMPETIDORES", payload: nuevosCompetidores });
+      showToast.success("Competidor eliminado");
     }
   };
 
@@ -256,38 +313,43 @@ export default function KataPage() {
       id: currentRoundNumber,
       nombre: `Ronda ${currentRoundNumber}`,
       competidores: [...state.competidores], // Copia profunda de competidores actuales
-      fecha: new Date().toISOString()
+      fecha: new Date().toISOString(),
     };
-    dispatch({ type: 'ARCHIVE_ROUND', payload: roundToArchive });
+    dispatch({ type: "ARCHIVE_ROUND", payload: roundToArchive });
 
     // 2. Preparar nueva ronda con competidores empatados
     const tiedCompetitors = state.competidores
-      .filter(c => tiedCompetitorIds.includes(c.id))
-      .map(c => ({
+      .filter((c) => tiedCompetitorIds.includes(c.id))
+      .map((c) => ({
         ...c,
         PuntajeFinal: null,
         PuntajesJueces: [],
-        previousScore: c.PuntajeFinal // Opcional: guardar puntaje anterior si se desea mostrar
+        previousScore: c.PuntajeFinal, // Opcional: guardar puntaje anterior si se desea mostrar
       }));
 
-    dispatch({ type: 'SET_COMPETIDORES', payload: tiedCompetitors });
+    dispatch({ type: "SET_COMPETIDORES", payload: tiedCompetitors });
     setShowResultados(false);
-    showToast.success(`Ronda ${currentRoundNumber} archivada. Iniciando desempate.`);
+    showToast.success(
+      `Ronda ${currentRoundNumber} archivada. Iniciando desempate.`,
+    );
   };
 
   // Función para avanzar a la siguiente ronda (cut off)
   const handleAdvanceRound = (cutoff: number) => {
     // 1. Calcular métricas y ordenar
     const competidoresConMetricas = state.competidores
-      .filter(c => c.PuntajeFinal !== null && !c.Kiken)
-      .map(c => ({
+      .filter((c) => c.PuntajeFinal !== null && !c.Kiken)
+      .map((c) => ({
         competidor: c,
-        metrics: calculateKataMetrics((c.PuntajesJueces || []).map(p => p || '0'), 5)
+        metrics: calculateKataMetrics(
+          (c.PuntajesJueces || []).map((p) => p || "0"),
+          5,
+        ),
       }));
 
     const sorted = competidoresConMetricas
       .sort((a, b) => compareCompetitors(a.metrics, b.metrics))
-      .map(w => w.competidor);
+      .map((w) => w.competidor);
 
     const winners = sorted.slice(0, cutoff);
 
@@ -297,39 +359,40 @@ export default function KataPage() {
       id: currentRoundNumber,
       nombre: `Ronda ${currentRoundNumber}`,
       competidores: [...state.competidores],
-      fecha: new Date().toISOString()
+      fecha: new Date().toISOString(),
     };
-    dispatch({ type: 'ARCHIVE_ROUND', payload: roundToArchive });
+    dispatch({ type: "ARCHIVE_ROUND", payload: roundToArchive });
 
     // 3. Preparar nueva ronda con los ganadores
-    const nextRoundCompetitors = winners.map(c => ({
+    const nextRoundCompetitors = winners.map((c) => ({
       ...c,
       PuntajeFinal: null,
-      PuntajesJueces: []
+      PuntajesJueces: [],
     }));
 
-    dispatch({ type: 'SET_COMPETIDORES', payload: nextRoundCompetitors });
+    dispatch({ type: "SET_COMPETIDORES", payload: nextRoundCompetitors });
     setShowResultados(false);
-    showToast.success(`Siguiente ronda iniciada con ${winners.length} competidores`);
+    showToast.success(
+      `Siguiente ronda iniciada con ${winners.length} competidores`,
+    );
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="app-shell">
+      <div className="app-container">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="app-header">
           <div>
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-              Módulo Kata
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Gestión de evaluaciones de formas
-            </p>
+            <h1 className="app-title mb-2">Módulo Kata</h1>
+            <p className="app-subtitle">Gestión de evaluaciones de formas</p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Button variant="flat" onPress={() => navigate('/inicio')}>
-              ← {t('common:buttons.back')}
+          <div className="app-toolbar">
+            <Button
+              className="app-button-secondary"
+              onPress={() => navigate("/inicio")}
+            >
+              ← {t("common:buttons.back")}
             </Button>
             {/*             <Button
               color="secondary"
@@ -340,17 +403,18 @@ export default function KataPage() {
             </Button> */}
 
             <Button
-              color="primary"
+              className="app-button-primary"
               onPress={handleOpenKataDisplay}
               isDisabled={state.displayWindowOpen}
             >
-              {state.displayWindowOpen ? 'Proyección Abierta' : 'Abrir Proyección'}
+              {state.displayWindowOpen
+                ? "Proyección Abierta"
+                : "Abrir Proyección"}
             </Button>
 
             {state.displayWindowOpen && (
               <Button
-                color="danger"
-                variant="flat"
+                className="app-button-danger"
                 onPress={handleCloseKataDisplay}
               >
                 Cerrar Proyección
@@ -366,28 +430,39 @@ export default function KataPage() {
             </Button> */}
             <Dropdown>
               <DropdownTrigger>
-                <Button variant="bordered">Exportar</Button>
+                <Button className="app-button-secondary">Exportar</Button>
               </DropdownTrigger>
-              <DropdownMenu aria-label="Static Actions" disabledKeys={state.competidores.length === 0 ? ['excel', 'pdf'] : []}>
-                <DropdownItem key="excel" onPress={handleExportExcel} className="text-success" color="default">
+              <DropdownMenu
+                aria-label="Static Actions"
+                disabledKeys={
+                  state.competidores.length === 0 ? ["excel", "pdf"] : []
+                }
+              >
+                <DropdownItem
+                  key="excel"
+                  onPress={handleExportExcel}
+                  className="text-success"
+                  color="default"
+                >
                   Excel
                 </DropdownItem>
-                <DropdownItem key="pdf" onPress={handleExportPDF} className="text-danger" color="default">
+                <DropdownItem
+                  key="pdf"
+                  onPress={handleExportPDF}
+                  className="text-danger"
+                  color="default"
+                >
                   PDF
                 </DropdownItem>
               </DropdownMenu>
             </Dropdown>
 
-            <Button
-              color="warning"
-              variant="flat"
-              onPress={handleReset}
-            >
+            <Button className="app-button-secondary" onPress={handleReset}>
               Resetear
             </Button>
 
             <Button
-              color="secondary"
+              className="app-button-primary"
               onPress={() => setShowResultados(true)}
               isDisabled={state.competidores.length === 0}
             >
@@ -399,45 +474,75 @@ export default function KataPage() {
         {/* Historial de Rondas Anteriores (Comprimido) */}
         {state.previousRounds && state.previousRounds.length > 0 && (
           <div className="mb-6 space-y-4">
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-300">Historial de Rondas</h2>
+            <h2 className="app-section-title">Historial de Rondas</h2>
             {state.previousRounds.map((ronda) => (
-              <Card key={ronda.id} className="bg-gray-100 dark:bg-gray-800">
-                <CardBody className="p-0"> {/* Padding 0 para controlar mejor el layout interno */}
+              <Card key={ronda.id} className="app-panel rounded-[1.5rem]">
+                <CardBody className="p-0">
+                  {" "}
+                  {/* Padding 0 para controlar mejor el layout interno */}
                   <div className="flex flex-col">
                     {/* Header de la Ronda (Siempre visible) */}
                     <div className="flex justify-between items-center p-4">
                       <div>
                         <h3 className="text-lg font-bold">{ronda.nombre}</h3>
                         <p className="text-sm text-gray-500">
-                          {new Date(ronda.fecha).toLocaleTimeString()} - {ronda.competidores.length} Competidores
+                          {new Date(ronda.fecha).toLocaleTimeString()} -{" "}
+                          {ronda.competidores.length} Competidores
                         </p>
                       </div>
                       <Accordion>
                         <AccordionItem
                           key="1"
                           aria-label={`Ver detalles de ${ronda.nombre}`}
-                          title={<span className="text-primary text-sm font-semibold">Ver Detalles / Descomprimir</span>}
+                          title={
+                            <span className="text-primary text-sm font-semibold">
+                              Ver Detalles / Descomprimir
+                            </span>
+                          }
                         >
                           {/* Tabla Detallada (Contenido del acordeón) */}
                           <div className="mt-2 overflow-x-auto">
                             <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                               <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
-                                  <th scope="col" className="px-4 py-3">#</th>
-                                  <th scope="col" className="px-4 py-3">Nombre</th>
-                                  <th scope="col" className="px-4 py-3">Puntajes</th>
-                                  <th scope="col" className="px-4 py-3 text-right">Total</th>
+                                  <th scope="col" className="px-4 py-3">
+                                    #
+                                  </th>
+                                  <th scope="col" className="px-4 py-3">
+                                    Nombre
+                                  </th>
+                                  <th scope="col" className="px-4 py-3">
+                                    Puntajes
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-4 py-3 text-right"
+                                  >
+                                    Total
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {ronda.competidores.map((comp, idx) => (
-                                  <tr key={comp.id} className="border-b dark:border-gray-700">
-                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{idx + 1}</td>
-                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{comp.Nombre}</td>
+                                  <tr
+                                    key={comp.id}
+                                    className="border-b dark:border-gray-700"
+                                  >
+                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                                      {comp.Nombre}
+                                    </td>
                                     <td className="px-4 py-3">
                                       <div className="flex gap-1">
                                         {comp.PuntajesJueces?.map((p, i) => (
-                                          <span key={i} className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">{p}</span>
+                                          <span
+                                            key={i}
+                                            className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs"
+                                          >
+                                            {p}
+                                          </span>
                                         ))}
                                       </div>
                                     </td>
@@ -460,23 +565,45 @@ export default function KataPage() {
         )}
 
         {/* Configuración */}
-        <Card className="mb-6">
-          <CardBody>
-            <h2 className="text-2xl font-bold mb-4">Configuración</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="app-panel rounded-[1.75rem] mb-6">
+          <CardBody className="p-8">
+            <h2 className="text-2xl font-bold mb-4 text-white">
+              Configuración
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Select
+                className="app-dark-select"
+                labelPlacement="outside-top"
+                label="Categoría importada"
+                placeholder="Selecciona una categoría"
+                selectedKeys={selectedCategoryId ? [selectedCategoryId] : []}
+                onSelectionChange={(keys) => {
+                  const selected = Array.from(keys)[0] as string;
+                  if (selected) {
+                    handleCategorySelection(selected);
+                  }
+                }}
+              >
+                {kataCategories.map((category) => (
+                  <SelectItem key={category.id} className="text-black">
+                    {category.categoria}
+                  </SelectItem>
+                ))}
+              </Select>
               {/* Área */}
               <Select
+                className="app-dark-select"
                 labelPlacement="outside-top"
                 label="Área"
                 placeholder="Selecciona un área"
                 selectedKeys={state.area ? [state.area] : []}
                 onSelectionChange={(keys) => {
                   const selected = Array.from(keys)[0] as string;
-                  dispatch({ type: 'SET_AREA', payload: selected });
+                  dispatch({ type: "SET_AREA", payload: selected });
                 }}
               >
                 {AREAS.map((area) => (
-                  <SelectItem key={area.key}>
+                  <SelectItem key={area.key} className="text-black">
                     {area.label}
                   </SelectItem>
                 ))}
@@ -484,17 +611,21 @@ export default function KataPage() {
 
               {/* Número de Jueces */}
               <Select
+                className="app-dark-select"
                 labelPlacement="outside-top"
                 label="Número de Jueces"
                 placeholder="Selecciona número de jueces"
                 selectedKeys={[state.numJudges.toString()]}
                 onSelectionChange={(keys) => {
                   const selected = Array.from(keys)[0] as string;
-                  dispatch({ type: 'SET_NUM_JUDGES', payload: parseInt(selected) });
+                  dispatch({
+                    type: "SET_NUM_JUDGES",
+                    payload: parseInt(selected),
+                  });
                 }}
               >
                 {CANTIDADJUECES.map((juez) => (
-                  <SelectItem key={juez.key}>
+                  <SelectItem key={juez.key} className="text-black">
                     {juez.label}
                   </SelectItem>
                 ))}
@@ -502,17 +633,18 @@ export default function KataPage() {
 
               {/* Base de Puntuación */}
               <Select
+                className="app-dark-select"
                 labelPlacement="outside-top"
                 label="Puntuación Media"
                 placeholder="Selecciona base"
                 selectedKeys={state.base ? [state.base.toString()] : []}
                 onSelectionChange={(keys) => {
                   const selected = Array.from(keys)[0] as string;
-                  dispatch({ type: 'SET_BASE', payload: parseInt(selected) });
+                  dispatch({ type: "SET_BASE", payload: parseInt(selected) });
                 }}
               >
                 {PUNTACIONMEDIA.map((base) => (
-                  <SelectItem key={base.key}>
+                  <SelectItem key={base.key} className="text-black">
                     {base.label}
                   </SelectItem>
                 ))}
@@ -522,14 +654,18 @@ export default function KataPage() {
             {/* Categoría */}
             <div className="mt-4">
               <Input
+                className="app-dark-input"
                 labelPlacement="outside-top"
                 label="Categoría"
                 placeholder="Ej: Cadete Masculino"
                 value={state.categoria}
                 onChange={(e) =>
                   dispatch({
-                    type: 'SET_CATEGORIA',
-                    payload: { categoria: e.target.value, titulo: e.target.value },
+                    type: "SET_CATEGORIA",
+                    payload: {
+                      categoria: e.target.value,
+                      titulo: e.target.value,
+                    },
                   })
                 }
               />
@@ -537,18 +673,13 @@ export default function KataPage() {
           </CardBody>
         </Card>
 
-        {/* Importar desde Excel */}
-        <div className="mb-6">
-          <ExcelUploader onCompetidoresLoaded={handleCompetidoresLoaded} page="kata" />
-        </div>
-
         {/* Competidores */}
-        <Card>
-          <CardBody>
+        <Card className="app-panel rounded-[1.75rem]">
+          <CardBody className="p-8">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Ronda Actual: Competidores</h2>
+              <h2 className="app-section-title">Ronda Actual: Competidores</h2>
               <Button
-                color="primary"
+                className="app-button-primary"
                 onPress={() => setShowAgregarCompetidor(true)}
               >
                 + Agregar Competidor
@@ -556,18 +687,21 @@ export default function KataPage() {
             </div>
 
             {state.competidores.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <p className="text-lg">No hay competidores agregados</p>
-                <p className="text-sm mt-2">
-                  Agrega competidores manualmente o importa desde Excel
+              <div className="app-empty-state">
+                <p className="text-lg text-slate-100">
+                  No hay competidores agregados
+                </p>
+                <p className="text-sm mt-2 text-slate-400">
+                  Selecciona una categoría cargada en inicio o agrega
+                  competidores manualmente
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {state.competidores.map((competidor, index) => {
                   const puntajesValidos = (competidor.PuntajesJueces || [])
-                    .map(p => parseFloat(p || '0'))
-                    .filter(p => !isNaN(p) && p > 0);
+                    .map((p) => parseFloat(p || "0"))
+                    .filter((p) => !isNaN(p) && p > 0);
 
                   let min = 0;
                   let max = 0;
@@ -587,42 +721,52 @@ export default function KataPage() {
                   }
 
                   const updatePuntaje = (juezIndex: number, valor: string) => {
-                    const newPuntajes = [...(competidor.PuntajesJueces || Array(state.numJudges).fill(''))];
-                    while (newPuntajes.length < state.numJudges) newPuntajes.push('');
+                    const newPuntajes = [
+                      ...(competidor.PuntajesJueces ||
+                        Array(state.numJudges).fill("")),
+                    ];
+                    while (newPuntajes.length < state.numJudges)
+                      newPuntajes.push("");
 
                     newPuntajes[juezIndex] = valor;
 
                     const pValidos = newPuntajes
-                      .map(p => parseFloat(p || '0'))
-                      .filter(p => !isNaN(p) && p > 0);
+                      .map((p) => parseFloat(p || "0"))
+                      .filter((p) => !isNaN(p) && p > 0);
 
                     let nuevoTotal = 0;
 
                     if (pValidos.length === state.numJudges) {
                       const sorted = [...pValidos].sort((a, b) => a - b);
                       if (state.numJudges === 5) {
-                        nuevoTotal = sorted.slice(1, 4).reduce((a, b) => a + b, 0);
+                        nuevoTotal = sorted
+                          .slice(1, 4)
+                          .reduce((a, b) => a + b, 0);
                       } else {
                         nuevoTotal = sorted.reduce((a, b) => a + b, 0);
                       }
                     }
 
                     dispatch({
-                      type: 'UPDATE_COMPETIDOR',
+                      type: "UPDATE_COMPETIDOR",
                       payload: {
                         id: competidor.id,
                         data: {
                           PuntajesJueces: newPuntajes,
-                          PuntajeFinal: nuevoTotal > 0 ? nuevoTotal : null
-                        }
-                      }
+                          PuntajeFinal: nuevoTotal > 0 ? nuevoTotal : null,
+                        },
+                      },
                     });
                   };
 
                   return (
                     <Card
                       key={competidor.id}
-                      className={competidor.Kiken ? 'bg-red-50 dark:bg-red-900/20' : ''}
+                      className={
+                        competidor.Kiken
+                          ? "rounded-[1.5rem] bg-red-950/30 border border-rose-500/20"
+                          : "app-list-row rounded-[1.5rem]"
+                      }
                     >
                       <CardBody>
                         <div className="flex flex-col gap-4">
@@ -632,8 +776,10 @@ export default function KataPage() {
                                 {index + 1}
                               </div>
                               <div>
-                                <p className="font-semibold text-lg">{competidor.Nombre}</p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                <p className="font-semibold text-lg">
+                                  {competidor.Nombre}
+                                </p>
+                                <p className="text-sm text-slate-400">
                                   Edad: {competidor.Edad}
                                 </p>
                               </div>
@@ -653,7 +799,9 @@ export default function KataPage() {
                                 size="sm"
                                 color="danger"
                                 variant="light"
-                                onPress={() => handleEliminarCompetidor(competidor.id)}
+                                onPress={() =>
+                                  handleEliminarCompetidor(competidor.id)
+                                }
                               >
                                 Eliminar
                               </Button>
@@ -661,34 +809,48 @@ export default function KataPage() {
                           </div>
 
                           {!competidor.Kiken && (
-                            <div className="flex flex-wrap items-end gap-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                            <div className="flex flex-wrap items-end gap-4 bg-[rgba(12,24,43,0.72)] p-4 rounded-2xl border border-[rgba(80,125,196,0.14)]">
                               <div className="flex gap-2">
-                                {Array.from({ length: state.numJudges }).map((_, jIndex) => (
-                                  <div key={jIndex} className="w-20">
-                                    <Select
-                                      labelPlacement="outside-top"
-                                      label={`Juez ${jIndex + 1}`}
-                                      size="sm"
-                                      variant="bordered"
-                                      selectedKeys={competidor.PuntajesJueces?.[jIndex] ? [competidor.PuntajesJueces[jIndex]] : []}
-                                      onChange={(e) => updatePuntaje(jIndex, e.target.value)}
-                                      className="min-w-[80px]"
-                                    >
-                                      {(() => {
-                                        const base = state.base || 7;
-                                        let scores = PUNTUACIONES.media; // Default to media (7)
-                                        if (base === 6) scores = PUNTUACIONES.baja;
-                                        if (base === 8) scores = PUNTUACIONES.alta;
+                                {Array.from({ length: state.numJudges }).map(
+                                  (_, jIndex) => (
+                                    <div key={jIndex} className="w-20">
+                                      <Select
+                                        labelPlacement="outside-top"
+                                        label={`Juez ${jIndex + 1}`}
+                                        size="sm"
+                                        variant="bordered"
+                                        selectedKeys={
+                                          competidor.PuntajesJueces?.[jIndex]
+                                            ? [
+                                                competidor.PuntajesJueces[
+                                                  jIndex
+                                                ],
+                                              ]
+                                            : []
+                                        }
+                                        onChange={(e) =>
+                                          updatePuntaje(jIndex, e.target.value)
+                                        }
+                                        className="min-w-[80px]"
+                                      >
+                                        {(() => {
+                                          const base = state.base || 7;
+                                          let scores = PUNTUACIONES.media; // Default to media (7)
+                                          if (base === 6)
+                                            scores = PUNTUACIONES.baja;
+                                          if (base === 8)
+                                            scores = PUNTUACIONES.alta;
 
-                                        return scores.map((score) => (
-                                          <SelectItem key={score.key}>
-                                            {score.label}
-                                          </SelectItem>
-                                        ));
-                                      })()}
-                                    </Select>
-                                  </div>
-                                ))}
+                                          return scores.map((score) => (
+                                            <SelectItem key={score.key}>
+                                              {score.label}
+                                            </SelectItem>
+                                          ));
+                                        })()}
+                                      </Select>
+                                    </div>
+                                  ),
+                                )}
                               </div>
 
                               <div className="w-[1px] h-10 bg-gray-300 dark:bg-gray-600 mx-2 hidden md:block"></div>
@@ -703,7 +865,7 @@ export default function KataPage() {
                                         size="sm"
                                         variant="flat"
                                         isReadOnly
-                                        value={min > 0 ? min.toFixed(2) : '-'}
+                                        value={min > 0 ? min.toFixed(2) : "-"}
                                         className="opacity-75"
                                       />
                                     </div>
@@ -714,7 +876,7 @@ export default function KataPage() {
                                         size="sm"
                                         variant="flat"
                                         isReadOnly
-                                        value={max > 0 ? max.toFixed(2) : '-'}
+                                        value={max > 0 ? max.toFixed(2) : "-"}
                                         className="opacity-75"
                                       />
                                     </div>
@@ -729,9 +891,10 @@ export default function KataPage() {
                                     color="success"
                                     variant="faded"
                                     isReadOnly
-                                    value={total > 0 ? total.toFixed(2) : '-'}
+                                    value={total > 0 ? total.toFixed(2) : "-"}
                                     classNames={{
-                                      input: "font-bold text-lg text-green-700 dark:text-green-400"
+                                      input:
+                                        "font-bold text-lg text-green-700 dark:text-green-400",
                                     }}
                                   />
                                 </div>
@@ -768,8 +931,6 @@ export default function KataPage() {
           onAdd={handleAddCompetidor}
         />
 
-
-
         {/* Modal Resultados Finales */}
         <ResultadosFinales
           isOpen={showResultados}
@@ -778,16 +939,28 @@ export default function KataPage() {
           categoria={state.categoria}
           area={state.area}
           currentRound={state.previousRounds.length + 1}
-          initialCompetitorCount={state.previousRounds.length > 0 ? state.previousRounds[0].competidores.length : state.competidores.length}
+          initialCompetitorCount={
+            state.previousRounds.length > 0
+              ? state.previousRounds[0].competidores.length
+              : state.competidores.length
+          }
           onExportExcel={handleExportExcel}
           onExportPDF={handleExportPDF}
           onStartTieBreaker={(tiedIds) => {
-            if (confirm('¿Estás seguro de iniciar una nueva ronda de desempate? La ronda actual se archivará.')) {
+            if (
+              confirm(
+                "¿Estás seguro de iniciar una nueva ronda de desempate? La ronda actual se archivará.",
+              )
+            ) {
               handleStartTieBreaker(tiedIds);
             }
           }}
           onNextRound={(cutoff) => {
-            if (confirm(`¿Estás seguro de pasar a la siguiente ronda con los mejores ${cutoff} competidores?`)) {
+            if (
+              confirm(
+                `¿Estás seguro de pasar a la siguiente ronda con los mejores ${cutoff} competidores?`,
+              )
+            ) {
               handleAdvanceRound(cutoff);
             }
           }}

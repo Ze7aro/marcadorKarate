@@ -9,6 +9,7 @@ import { ConfigProvider } from "@/context/ConfigContext";
 import { KataProvider } from "@/context/KataContext";
 import { KumiteProvider } from "@/context/KumiteContext";
 
+
 function App() {
   return (
     <ConfigProvider>

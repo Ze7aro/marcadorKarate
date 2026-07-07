@@ -24,20 +24,20 @@ export default function StatsCard({
   };
 
   return (
-    <Card className="w-full">
+    <Card className="app-panel w-full rounded-[1.75rem] overflow-hidden">
       <CardBody className="p-0">
         <div
-          className={`bg-gradient-to-br ${colorClasses[color]} text-white p-6 rounded-lg`}
+          className={`bg-gradient-to-br ${colorClasses[color]} text-white p-6 min-h-[180px]`}
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <p className="text-sm opacity-90 mb-1">{title}</p>
-              <p className="text-4xl font-bold">{value}</p>
+              <p className="text-xs uppercase tracking-[0.22em] font-black opacity-80 mb-3">{title}</p>
+              <p className="text-5xl font-black tracking-tight">{value}</p>
               {description && (
-                <p className="text-sm opacity-75 mt-2">{description}</p>
+                <p className="text-sm opacity-75 mt-3 max-w-[18rem]">{description}</p>
               )}
             </div>
-            {icon && <div className="text-5xl opacity-50">{icon}</div>}
+            {icon && <div className="text-5xl opacity-60">{icon}</div>}
           </div>
         </div>
       </CardBody>
