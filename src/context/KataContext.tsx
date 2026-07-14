@@ -162,8 +162,8 @@ const KataContext = createContext<KataContextType | undefined>(undefined);
 
 export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(kataReducer, initialState);
+  const prevCompetidores = useRef<Competidor[]>([]);
 
-  // Persistencia con localStorage
   const [_storedCompetidores, setStoredCompetidores] = useLocalStorage<Competidor[]>(
     'kataCompetidores',
     []
@@ -175,7 +175,6 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [_storedArea, setStoredArea] = useLocalStorage<string>('kataArea', '');
   const [_storedPreviousRounds, setStoredPreviousRounds] = useLocalStorage<Round[]>('kataPreviousRounds', []);
 
-  // Comunicación cross-platform
   const postKataMessage = useCrossPlatformChannel<KataStateSync>(
     KATA_EVENTS.SYNC_STATE,
     (data) => {
@@ -183,7 +182,73 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   );
 
-  // Sincronizar estado con localStorage
+  const buildKataSyncPayload = (): KataStateSync => {
+    const nextActive = state.competidores.find((c) => !c.PuntajeFinal && !c.Kiken);
+    const justFinished = state.competidores.find(
+      (c) =>
+        c.PuntajeFinal !== null &&
+        c.PuntajeFinal !== undefined &&
+        prevCompetidores.current.find((p) => p.id === c.id)?.PuntajeFinal === null
+    );
+    const lastEvaluated = [...state.competidores]
+      .reverse()
+      .find((c) => c.PuntajeFinal !== null && c.PuntajeFinal !== undefined && !c.Kiken);
+    const firstAvailable = state.competidores.find((c) => !c.Kiken) || state.competidores[0];
+    const competitorToSync = justFinished || nextActive || lastEvaluated || firstAvailable;
+
+    if (!competitorToSync) {
+      return {
+        competidor: '',
+        categoria: state.categoria,
+        numJudges: state.numJudges,
+        puntajes: [],
+        puntajeFinal: state.score,
+        puntajeMenor: state.lowScore,
+        puntajeMayor: state.highScore,
+        competidores: state.competidores,
+        area: state.area,
+        isFinal: false,
+      };
+    }
+
+    const pValidos = (competitorToSync.PuntajesJueces || [])
+      .map((p) => parseFloat(p || '0'))
+      .filter((p) => !isNaN(p) && p > 0);
+
+    let low = '';
+    let high = '';
+
+    if (pValidos.length === 5) {
+      const sorted = [...pValidos].sort((a, b) => a - b);
+      low = sorted[0].toFixed(2);
+      high = sorted[4].toFixed(2);
+    } else if (pValidos.length === 3) {
+      const sorted = [...pValidos].sort((a, b) => a - b);
+      low = sorted[0].toFixed(2);
+      high = sorted[2].toFixed(2);
+    }
+
+    return {
+      competidor: competitorToSync.Nombre,
+      id: competitorToSync.id,
+      categoria: state.categoria,
+      numJudges: state.numJudges,
+      puntajes: (competitorToSync.PuntajesJueces || []).map((p) => p || ''),
+      puntajeFinal: competitorToSync.PuntajeFinal?.toFixed(2) || state.score,
+      puntajeMenor: low || state.lowScore,
+      puntajeMayor: high || state.highScore,
+      competidores: state.competidores,
+      area: state.area,
+      isFinal: !!justFinished,
+    };
+  };
+
+  useCrossPlatformChannel(KATA_EVENTS.DISPLAY_READY, () => {
+    const payload = buildKataSyncPayload();
+    postKataMessage(payload);
+    console.log('Kata projection requested immediate sync');
+  });
+
   useEffect(() => {
     setStoredCompetidores(state.competidores);
   }, [state.competidores, setStoredCompetidores]);
@@ -212,72 +277,15 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setStoredPreviousRounds(state.previousRounds);
   }, [state.previousRounds, setStoredPreviousRounds]);
 
-  // Referencia para detectar cambios en los competidores
-  const prevCompetidores = useRef<Competidor[]>([]);
-
-  // Sincronizar con ventana de proyección (con debounce para evitar spam)
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      // 1. Encontrar al primer competidor que NO tiene puntaje final ni está descalificado (Kiken)
-      // Este es el que debería estar "activo" normalmente.
-      const nextActive = state.competidores.find((c) => !c.PuntajeFinal && !c.Kiken);
-
-      // 2. Detectar si alguien acaba de terminar (tenía null y ahora tiene puntaje)
-      const justFinished = state.competidores.find(c =>
-        c.PuntajeFinal !== null &&
-        c.PuntajeFinal !== undefined &&
-        prevCompetidores.current.find(p => p.id === c.id)?.PuntajeFinal === null
-      );
-
-      // Si alguien acaba de terminar, priorizamos mostrar su resultado final
-      // Si no, mostramos al siguiente activo
-      const competitorToSync = justFinished || nextActive;
-
-      if (!competitorToSync) {
-        // No hay nadie que mostrar (quizás terminó la categoría)
-        // Enviar un paquete vacío o el último estado conocido
-        return;
-      }
-
-      // Calcular métricas para la proyección si tenemos todos los puntajes
-      const pValidos = (competitorToSync.PuntajesJueces || [])
-        .map(p => parseFloat(p || '0'))
-        .filter(p => !isNaN(p) && p > 0);
-
-      let low = '';
-      let high = '';
-
-      if (pValidos.length === 5) {
-        const sorted = [...pValidos].sort((a, b) => a - b);
-        low = sorted[0].toFixed(2);
-        high = sorted[4].toFixed(2);
-      } else if (pValidos.length === 3) {
-        const sorted = [...pValidos].sort((a, b) => a - b);
-        low = sorted[0].toFixed(2);
-        high = sorted[2].toFixed(2);
-      }
-
-      const dataParaEnviar: KataStateSync = {
-        competidor: competitorToSync.Nombre,
-        id: competitorToSync.id,
-        categoria: state.categoria,
-        // Usar los puntajes del competidor seleccionado para sync
-        puntajes: (competitorToSync.PuntajesJueces || []).map(p => p || ''),
-        // Priorizar el puntaje final del objeto del competidor
-        puntajeFinal: competitorToSync.PuntajeFinal?.toFixed(2) || state.score,
-        puntajeMenor: low || state.lowScore,
-        puntajeMayor: high || state.highScore,
-        competidores: state.competidores,
-        area: state.area,
-        isFinal: !!justFinished
-      };
+      const dataParaEnviar = buildKataSyncPayload();
 
       postKataMessage(dataParaEnviar);
-      console.log('Kata state synced at:', new Date().toISOString(), 'isFinal:', !!justFinished);
+      console.log('Kata state synced at:', new Date().toISOString(), 'isFinal:', !!dataParaEnviar.isFinal);
 
-      // Actualizar la referencia para la siguiente comparación
       prevCompetidores.current = state.competidores;
-    }, 300); // Debounce de 300ms
+    }, 300);
 
     return () => clearTimeout(debounceTimer);
   }, [
@@ -291,10 +299,33 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     postKataMessage,
   ]);
 
-  // Función para guardar competencia en DB
+  useEffect(() => {
+    if (!state.displayWindowOpen) {
+      return;
+    }
+
+    const heartbeat = setInterval(() => {
+      const dataParaEnviar = buildKataSyncPayload();
+      postKataMessage({
+        ...dataParaEnviar,
+        isFinal: false,
+      });
+    }, 3000);
+
+    return () => clearInterval(heartbeat);
+  }, [
+    state.displayWindowOpen,
+    state.competidores,
+    state.score,
+    state.lowScore,
+    state.highScore,
+    state.categoria,
+    state.area,
+    postKataMessage,
+  ]);
+
   const guardarCompetencia = async (): Promise<number> => {
     try {
-      // Validación previa
       if (!state.area) {
         throw new Error('Debe seleccionar un área antes de guardar');
       }
@@ -330,7 +361,6 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return competenciaId;
     } catch (error) {
       console.error('Error guardando competencia:', error);
-      // Re-throw con mensaje más descriptivo
       if (error instanceof Error) {
         throw new Error(`Error al guardar competencia: ${error.message}`);
       }

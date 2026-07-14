@@ -36,7 +36,6 @@ export default function EvaluarCompetidor({
   const [puntajeMenor, setPuntajeMenor] = useState<number | null>(null);
   const [puntajeMayor, setPuntajeMayor] = useState<number | null>(null);
 
-  // Inicializar puntajes vacíos
   useEffect(() => {
     if (isOpen) {
       setPuntajes(Array(numJudges).fill(''));
@@ -46,13 +45,11 @@ export default function EvaluarCompetidor({
     }
   }, [isOpen, numJudges]);
 
-  // Calcular puntaje automáticamente cuando cambian los puntajes
   useEffect(() => {
     calcularPuntaje();
   }, [puntajes, numJudges]);
 
   const calcularPuntaje = () => {
-    // Verificar que todos los puntajes estén completos
     const puntajesValidos = puntajes.filter((p) => p && !isNaN(parseFloat(p)));
 
     if (puntajesValidos.length !== numJudges) {
@@ -62,29 +59,30 @@ export default function EvaluarCompetidor({
       return;
     }
 
-    const puntajesNumericos = puntajesValidos.map((p) => parseFloat(p)).sort((a, b) => a - b);
+    const puntajesNumericos = puntajesValidos
+      .map((p) => parseFloat(p))
+      .sort((a, b) => a - b);
 
     if (numJudges === 5) {
-      // Para 5 jueces: descartar el mayor y menor, promediar los 3 del medio
       const menor = puntajesNumericos[0];
       const mayor = puntajesNumericos[4];
       const medios = puntajesNumericos.slice(1, 4);
-      const promedio = medios.reduce((acc, p) => acc + p, 0) / 3;
+      const total = medios.reduce((acc, p) => acc + p, 0);
 
       setPuntajeMenor(menor);
       setPuntajeMayor(mayor);
-      setPuntajeFinal(promedio);
+      setPuntajeFinal(total);
     } else if (numJudges === 3) {
-      // Para 3 jueces: promedio simple
-      const promedio = puntajesNumericos.reduce((acc, p) => acc + p, 0) / 3;
-      setPuntajeFinal(promedio);
+      const mayor = puntajesNumericos[2];
+      const total = puntajesNumericos.slice(0, 2).reduce((acc, p) => acc + p, 0);
+
       setPuntajeMenor(null);
-      setPuntajeMayor(null);
+      setPuntajeMayor(mayor);
+      setPuntajeFinal(total);
     }
   };
 
   const handlePuntajeChange = (index: number, value: string) => {
-    // Validar que sea un número válido
     if (value && !/^\d*\.?\d*$/.test(value)) {
       return;
     }
@@ -136,7 +134,6 @@ export default function EvaluarCompetidor({
         </ModalHeader>
         <ModalBody>
           <div className="space-y-6">
-            {/* Info de base de puntuación */}
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
               <CardBody className="py-3">
                 <p className="text-sm text-center">
@@ -146,7 +143,6 @@ export default function EvaluarCompetidor({
               </CardBody>
             </Card>
 
-            {/* Inputs de jueces */}
             <div>
               <h3 className="text-lg font-semibold mb-3">
                 Puntajes de Jueces ({numJudges} jueces)
@@ -169,7 +165,6 @@ export default function EvaluarCompetidor({
               </div>
             </div>
 
-            {/* Resultado del cálculo */}
             {puntajeFinal !== null && (
               <Card className="bg-gradient-to-r from-green-500 to-emerald-500">
                 <CardBody>
@@ -177,12 +172,14 @@ export default function EvaluarCompetidor({
                     <p className="text-lg mb-2">Puntaje Final</p>
                     <p className="text-6xl font-bold">{puntajeFinal.toFixed(2)}</p>
 
-                    {numJudges === 5 && puntajeMenor !== null && puntajeMayor !== null && (
+                    {puntajeMayor !== null && (
                       <div className="flex justify-center gap-8 mt-4">
-                        <div>
-                          <p className="text-sm opacity-75">Menor (descartado)</p>
-                          <p className="text-2xl font-bold">{puntajeMenor.toFixed(2)}</p>
-                        </div>
+                        {numJudges === 5 && puntajeMenor !== null && (
+                          <div>
+                            <p className="text-sm opacity-75">Menor (descartado)</p>
+                            <p className="text-2xl font-bold">{puntajeMenor.toFixed(2)}</p>
+                          </div>
+                        )}
                         <div>
                           <p className="text-sm opacity-75">Mayor (descartado)</p>
                           <p className="text-2xl font-bold">{puntajeMayor.toFixed(2)}</p>
@@ -194,7 +191,6 @@ export default function EvaluarCompetidor({
               </Card>
             )}
 
-            {/* Instrucciones */}
             <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
               <p className="text-sm">
                 <strong>Cómo evaluar:</strong>
@@ -203,6 +199,9 @@ export default function EvaluarCompetidor({
                 <li>Ingresa el puntaje de cada juez ({minScore.toFixed(1)} a {maxScore.toFixed(1)})</li>
                 {numJudges === 5 && (
                   <li>Se descartará automáticamente el puntaje mayor y menor</li>
+                )}
+                {numJudges === 3 && (
+                  <li>Se descartará automáticamente el puntaje mayor</li>
                 )}
                 <li>El puntaje final se calcula automáticamente</li>
                 <li>Click en "Guardar" para registrar el puntaje</li>

@@ -15,6 +15,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  Chip,
 } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import { BracketState, CompetidorKumite } from '@/types/events';
@@ -37,10 +38,8 @@ export default function ResultadosFinales({
 }: ResultadosFinalesProps) {
   const { t } = useTranslation(['kumite', 'common']);
 
-  // Obtener ganador del torneo (1er lugar)
   const winner = useMemo(() => getTournamentWinner(bracket), [bracket]);
 
-  // Obtener subcampeón (perdedor de la final)
   const runnerUp = useMemo(() => {
     const finalMatch = bracket.matches.find(
       (m) => m.round === bracket.rounds && m.status === 'completed'
@@ -52,7 +51,6 @@ export default function ResultadosFinales({
       : finalMatch.competidorAka;
   }, [bracket]);
 
-  // Obtener terceros lugares (perdedores de semifinales)
   const thirdPlace = useMemo(() => {
     if (bracket.rounds < 2) return [];
 
@@ -70,12 +68,10 @@ export default function ResultadosFinales({
     return thirds;
   }, [bracket]);
 
-  // Matches completados para historial
   const completedMatches = useMemo(() => {
     return bracket.matches
       .filter((m) => m.status === 'completed')
       .sort((a, b) => {
-        // Ordenar por ronda primero, luego por posición
         if (a.round !== b.round) return a.round - b.round;
         return a.position - b.position;
       });
@@ -88,64 +84,102 @@ export default function ResultadosFinales({
     return '-';
   };
 
+  const getPodiumCardClass = (position: 1 | 2 | 3) => {
+    if (position === 1) {
+      return 'bg-[linear-gradient(180deg,rgba(255,210,76,0.3)_0%,rgba(92,61,8,0.72)_100%)] border border-amber-300/30';
+    }
+    if (position === 2) {
+      return 'bg-[linear-gradient(180deg,rgba(203,213,225,0.22)_0%,rgba(51,65,85,0.72)_100%)] border border-slate-300/20';
+    }
+    return 'bg-[linear-gradient(180deg,rgba(251,146,60,0.24)_0%,rgba(95,45,12,0.72)_100%)] border border-orange-300/20';
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
-      <ModalContent>
-        <ModalHeader className="flex flex-col gap-1">
-          <h2 className="text-2xl font-bold">{t('kumite:results.finalResults')}</h2>
-          <div className="text-sm text-gray-500">
-            {categoria && <span>{categoria} - </span>}
-            {area && <span>{t('kumite:config.area')} {area}</span>}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="5xl"
+      scrollBehavior="inside"
+      backdrop="blur"
+      classNames={{ backdrop: 'bg-slate-950/70' }}
+    >
+      <ModalContent className="app-panel max-h-[92vh] overflow-hidden rounded-[1.75rem] text-slate-100">
+        <ModalHeader className="flex flex-col gap-4 border-b border-[rgba(80,125,196,0.16)] px-7 py-6">
+          <div>
+            <h2 className="text-3xl font-bold text-white">{t('kumite:results.finalResults')}</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Resumen del podio y del historial completo de combates.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {categoria && (
+              <Chip size="sm" className="border border-fuchsia-400/20 bg-fuchsia-500/15 text-fuchsia-100">
+                {categoria}
+              </Chip>
+            )}
+            {area && (
+              <Chip size="sm" className="border border-sky-400/20 bg-sky-500/15 text-sky-100">
+                {t('kumite:config.area')} {area}
+              </Chip>
+            )}
+            <Chip size="sm" className="border border-slate-300/10 bg-slate-200/10 text-slate-200">
+              {completedMatches.length} Matches
+            </Chip>
           </div>
         </ModalHeader>
-        <Divider />
-        <ModalBody>
-          <div className="space-y-6">
-            {/* Podio */}
+
+        <ModalBody className="px-7 py-6">
+          <div className="space-y-8">
             <div>
-              <h3 className="text-lg font-semibold mb-4">{t('kumite:results.title')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* 1er Lugar */}
+              <h3 className="mb-5 text-xl font-black text-slate-50">{t('kumite:results.title')}</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {winner && (
-                  <Card className="bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30">
-                    <CardBody className="text-center p-6">
-                      <div className="text-6xl mb-2">🥇</div>
-                      <h4 className="text-lg font-bold mb-1">{t('kumite:results.winner')}</h4>
-                      <p className="text-2xl font-bold">{winner.Nombre}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <Card className={`rounded-[1.5rem] ${getPodiumCardClass(1)}`}>
+                    <CardBody className="py-7 text-center">
+                      <div className="mb-3 text-6xl">🥇</div>
+                      <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white/70">
+                        {t('kumite:results.winner')}
+                      </h4>
+                      <p className="mt-2 text-2xl font-black text-white">{winner.Nombre}</p>
+                      <p className="mt-1 text-sm text-white/75">
                         {winner.Edad} {t('kumite:competitor.age').toLowerCase()}
                       </p>
                     </CardBody>
                   </Card>
                 )}
 
-                {/* 2do Lugar */}
                 {runnerUp && (
-                  <Card className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800/50 dark:to-gray-700/50">
-                    <CardBody className="text-center p-6">
-                      <div className="text-6xl mb-2">🥈</div>
-                      <h4 className="text-lg font-bold mb-1">{t('kumite:results.runnerUp')}</h4>
-                      <p className="text-2xl font-bold">{runnerUp.Nombre}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <Card className={`rounded-[1.5rem] ${getPodiumCardClass(2)}`}>
+                    <CardBody className="py-7 text-center">
+                      <div className="mb-3 text-6xl">🥈</div>
+                      <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white/70">
+                        {t('kumite:results.runnerUp')}
+                      </h4>
+                      <p className="mt-2 text-2xl font-black text-white">{runnerUp.Nombre}</p>
+                      <p className="mt-1 text-sm text-white/75">
                         {runnerUp.Edad} {t('kumite:competitor.age').toLowerCase()}
                       </p>
                     </CardBody>
                   </Card>
                 )}
 
-                {/* 3er Lugar */}
                 {thirdPlace.length > 0 && (
-                  <Card className="bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30">
-                    <CardBody className="text-center p-6">
-                      <div className="text-6xl mb-2">🥉</div>
-                      <h4 className="text-lg font-bold mb-1">{t('kumite:results.thirdPlace')}</h4>
+                  <Card className={`rounded-[1.5rem] ${getPodiumCardClass(3)}`}>
+                    <CardBody className="py-7 text-center">
+                      <div className="mb-3 text-6xl">🥉</div>
+                      <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white/70">
+                        {t('kumite:results.thirdPlace')}
+                      </h4>
                       {thirdPlace.map((competitor, idx) => (
                         <div key={competitor.id}>
-                          <p className="text-xl font-bold">{competitor.Nombre}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          <p className="mt-2 text-xl font-black text-white">{competitor.Nombre}</p>
+                          <p className="mt-1 text-sm text-white/75">
                             {competitor.Edad} {t('kumite:competitor.age').toLowerCase()}
                           </p>
-                          {idx < thirdPlace.length - 1 && <Divider className="my-2" />}
+                          {idx < thirdPlace.length - 1 && (
+                            <Divider className="app-subtle-divider my-3" />
+                          )}
                         </div>
                       ))}
                     </CardBody>
@@ -154,67 +188,72 @@ export default function ResultadosFinales({
               </div>
             </div>
 
-            <Divider />
+            <Divider className="app-subtle-divider" />
 
-            {/* Historial de Matches */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">{t('kumite:results.matchHistory')}</h3>
-              <Table aria-label="Match history table">
-                <TableHeader>
-                  <TableColumn>{t('kumite:bracket.round')}</TableColumn>
-                  <TableColumn>Match</TableColumn>
-                  <TableColumn>{t('kumite:competitor.aka')}</TableColumn>
-                  <TableColumn>{t('kumite:match.score')}</TableColumn>
-                  <TableColumn>{t('kumite:competitor.shiro')}</TableColumn>
-                  <TableColumn>{t('kumite:results.winner')}</TableColumn>
-                </TableHeader>
-                <TableBody>
-                  {completedMatches.map((match) => (
-                    <TableRow key={match.id}>
-                      <TableCell>{getRoundName(match.round, bracket.rounds)}</TableCell>
-                      <TableCell>{match.position + 1}</TableCell>
-                      <TableCell>
-                        <span
-                          className={
-                            match.competidorAka?.id === match.winnerId ? 'font-bold' : ''
-                          }
-                        >
-                          {match.competidorAka?.Nombre || '-'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono">
-                          {match.scoreAka} - {match.scoreShiro}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={match.competidorShiro?.id === match.winnerId ? 'font-bold' : ''}
-                        >
-                          {match.competidorShiro?.Nombre || '-'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-semibold text-success">{getWinnerName(match)}</span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <h3 className="mb-4 text-xl font-black text-slate-50">
+                {t('kumite:results.matchHistory')}
+              </h3>
+              <div className="overflow-hidden rounded-[1.5rem] border border-[rgba(80,125,196,0.18)] bg-[rgba(12,24,43,0.72)]">
+                <Table
+                  aria-label="Match history table"
+                  removeWrapper
+                  classNames={{
+                    th: 'bg-[rgba(20,37,63,0.9)] text-slate-300 uppercase text-[11px] tracking-[0.14em]',
+                    td: 'text-slate-100',
+                    tr: 'border-b border-[rgba(80,125,196,0.12)]',
+                  }}
+                >
+                  <TableHeader>
+                    <TableColumn>{t('kumite:bracket.round')}</TableColumn>
+                    <TableColumn>Match</TableColumn>
+                    <TableColumn>{t('kumite:competitor.aka')}</TableColumn>
+                    <TableColumn>{t('kumite:match.score')}</TableColumn>
+                    <TableColumn>{t('kumite:competitor.shiro')}</TableColumn>
+                    <TableColumn>{t('kumite:results.winner')}</TableColumn>
+                  </TableHeader>
+                  <TableBody emptyContent="Sin combates finalizados">
+                    {completedMatches.map((match) => (
+                      <TableRow key={match.id}>
+                        <TableCell>{getRoundName(match.round, bracket.rounds)}</TableCell>
+                        <TableCell>{match.position + 1}</TableCell>
+                        <TableCell>
+                          <span className={match.competidorAka?.id === match.winnerId ? 'font-bold text-rose-300' : ''}>
+                            {match.competidorAka?.Nombre || '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-slate-200">
+                            {match.scoreAka} - {match.scoreShiro}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={match.competidorShiro?.id === match.winnerId ? 'font-bold text-slate-50' : ''}>
+                            {match.competidorShiro?.Nombre || '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-emerald-400">{getWinnerName(match)}</span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </div>
         </ModalBody>
-        <Divider />
-        <ModalFooter className="flex justify-between">
-          <div className="flex gap-2">
-            <Button color="secondary" variant="flat" isDisabled>
+
+        <ModalFooter className="flex justify-between gap-4 border-t border-[rgba(80,125,196,0.16)] px-7 py-5">
+          <div className="flex gap-3">
+            <Button className="app-button-secondary" variant="bordered" isDisabled>
               {t('kumite:actions.exportPDF')}
             </Button>
-            <Button color="secondary" variant="flat" isDisabled>
+            <Button className="app-button-secondary" variant="bordered" isDisabled>
               {t('kumite:actions.exportExcel')}
             </Button>
           </div>
-          <Button color="primary" onPress={onClose}>
+          <Button className="app-button-primary" onPress={onClose}>
             {t('common:buttons.close')}
           </Button>
         </ModalFooter>

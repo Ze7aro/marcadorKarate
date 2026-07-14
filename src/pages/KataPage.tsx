@@ -343,7 +343,7 @@ export default function KataPage() {
         competidor: c,
         metrics: calculateKataMetrics(
           (c.PuntajesJueces || []).map((p) => p || "0"),
-          5,
+          state.numJudges,
         ),
       }));
 
@@ -654,6 +654,7 @@ export default function KataPage() {
             {/* Categoría */}
             <div className="mt-4">
               <Input
+                readOnly
                 className="app-dark-input"
                 labelPlacement="outside-top"
                 label="Categoría"
@@ -713,6 +714,9 @@ export default function KataPage() {
                       min = sorted[0];
                       max = sorted[4];
                       total = sorted.slice(1, 4).reduce((a, b) => a + b, 0);
+                    } else if (state.numJudges === 3) {
+                      max = sorted[2];
+                      total = sorted.slice(0, 2).reduce((a, b) => a + b, 0);
                     } else {
                       total = sorted.reduce((a, b) => a + b, 0);
                     }
@@ -741,6 +745,10 @@ export default function KataPage() {
                       if (state.numJudges === 5) {
                         nuevoTotal = sorted
                           .slice(1, 4)
+                          .reduce((a, b) => a + b, 0);
+                      } else if (state.numJudges === 3) {
+                        nuevoTotal = sorted
+                          .slice(0, 2)
                           .reduce((a, b) => a + b, 0);
                       } else {
                         nuevoTotal = sorted.reduce((a, b) => a + b, 0);
@@ -842,7 +850,10 @@ export default function KataPage() {
                                             scores = PUNTUACIONES.alta;
 
                                           return scores.map((score) => (
-                                            <SelectItem key={score.key}>
+                                            <SelectItem
+                                              key={score.key}
+                                              className="text-black"
+                                            >
                                               {score.label}
                                             </SelectItem>
                                           ));
@@ -936,6 +947,7 @@ export default function KataPage() {
           isOpen={showResultados}
           onClose={() => setShowResultados(false)}
           competidores={state.competidores}
+          numJudges={state.numJudges}
           categoria={state.categoria}
           area={state.area}
           currentRound={state.previousRounds.length + 1}

@@ -17,6 +17,7 @@ interface ResultadosFinalesProps {
   isOpen: boolean;
   onClose: () => void;
   competidores: Competidor[];
+  numJudges: number;
   categoria: string;
   area: string;
   currentRound: number;
@@ -31,6 +32,7 @@ export default function ResultadosFinales({
   isOpen,
   onClose,
   competidores,
+  numJudges,
   categoria,
   area,
   currentRound,
@@ -40,89 +42,98 @@ export default function ResultadosFinales({
   onStartTieBreaker,
   onNextRound,
 }: ResultadosFinalesProps) {
-  // Calcular métricas para todos los competidores evaluados
   const competidoresConMetricas = competidores
     .filter((c) => c.PuntajeFinal !== null && !c.Kiken)
     .map((c) => ({
       competidor: c,
-      metrics: calculateKataMetrics((c.PuntajesJueces || []).map(p => p || '0'), 5), // Asumiendo 5 jueces por defecto
+      metrics: calculateKataMetrics((c.PuntajesJueces || []).map((p) => p || '0'), numJudges),
     }));
 
-  // Ordenar usando la lógica de tie-breaking
   const competidoresEvaluados = competidoresConMetricas
     .sort((a, b) => compareCompetitors(a.metrics, b.metrics))
-    .map(wrapper => wrapper.competidor);
+    .map((wrapper) => wrapper.competidor);
 
   const competidoresDescalificados = competidores.filter((c) => c.Kiken);
   const competidoresNoEvaluados = competidores.filter(
     (c) => c.PuntajeFinal === null && !c.Kiken
   );
 
-  // Lógica de Rondas
   const roundStructure = getRoundStructure(initialCompetitorCount, currentRound);
   const showNextRoundButton = roundStructure.nextRoundCutoff !== null;
 
-  // Validar si hay empate en el corte
   const checkForCutoffTie = (): boolean => {
-    if (!roundStructure.nextRoundCutoff || competidoresEvaluados.length <= roundStructure.nextRoundCutoff) return false;
+    if (
+      !roundStructure.nextRoundCutoff ||
+      competidoresEvaluados.length <= roundStructure.nextRoundCutoff
+    ) {
+      return false;
+    }
 
-    // El competidor en la posición del corte (index = cutoff - 1)
-    // El competidor justo fuera del corte (index = cutoff)
     const cutoffIndex = roundStructure.nextRoundCutoff - 1;
     const lastInIndex = cutoffIndex;
     const firstOutIndex = cutoffIndex + 1;
 
-    if (!competidoresEvaluados[lastInIndex] || !competidoresEvaluados[firstOutIndex]) return false;
+    if (!competidoresEvaluados[lastInIndex] || !competidoresEvaluados[firstOutIndex]) {
+      return false;
+    }
 
-    const metricsIn = competidoresConMetricas.find(c => c.competidor.id === competidoresEvaluados[lastInIndex].id)!.metrics;
-    const metricsOut = competidoresConMetricas.find(c => c.competidor.id === competidoresEvaluados[firstOutIndex].id)!.metrics;
+    const metricsIn = competidoresConMetricas.find(
+      (c) => c.competidor.id === competidoresEvaluados[lastInIndex].id
+    )!.metrics;
+    const metricsOut = competidoresConMetricas.find(
+      (c) => c.competidor.id === competidoresEvaluados[firstOutIndex].id
+    )!.metrics;
 
     return compareCompetitors(metricsIn, metricsOut) === 0;
   };
 
   const isCutoffTied = checkForCutoffTie();
 
-  // Detectar empates en los primeros 3 puestos (o relevantes)
   const checkForTies = () => {
     if (competidoresEvaluados.length < 2) return null;
 
-    // Agrupar por métricas idénticas
-    // Como ya están ordenados, los empatados estarán adyacentes
     const tiedGroups: Competidor[][] = [];
     let currentGroup: Competidor[] = [competidoresEvaluados[0]];
 
     for (let i = 1; i < competidoresEvaluados.length; i++) {
-      const prev = competidoresConMetricas.find(c => c.competidor.id === currentGroup[0].id)!.metrics;
-      const curr = competidoresConMetricas.find(c => c.competidor.id === competidoresEvaluados[i].id)!.metrics;
+      const prev = competidoresConMetricas.find(
+        (c) => c.competidor.id === currentGroup[0].id
+      )!.metrics;
+      const curr = competidoresConMetricas.find(
+        (c) => c.competidor.id === competidoresEvaluados[i].id
+      )!.metrics;
 
-      if (compareCompetitors({ ...prev, total: prev.total }, { ...curr, total: curr.total }) === 0) {
+      if (
+        compareCompetitors(
+          { ...prev, total: prev.total },
+          { ...curr, total: curr.total }
+        ) === 0
+      ) {
         currentGroup.push(competidoresEvaluados[i]);
       } else {
         if (currentGroup.length > 1) {
-          // Solo nos interesan empates que afecten el podio (para este caso simple)
-          // O si el usuario quiere resolver cualquier empate.
-          // Asumamos que si hay empate en el Top 4 (por las medallas dobles de bronce a veces, o solo top 3)
-          // Vamos a reportar el grupo de empate más alto.
           tiedGroups.push([...currentGroup]);
         }
         currentGroup = [competidoresEvaluados[i]];
       }
     }
+
     if (currentGroup.length > 1) {
       tiedGroups.push([...currentGroup]);
     }
 
-    // Retorna el primer grupo de empate relevante encontrado
     return tiedGroups.length > 0 ? tiedGroups[0] : null;
   };
 
   const tieGroup = checkForTies();
-  // El empate bloqueante real es si afecta el corte o el podio. 
-  // Si hay empate en corte, la prioridad es desempatar eso.
-  const blockingTie = isCutoffTied ? { type: 'cutoff', message: `Empate en el puesto ${roundStructure.nextRoundCutoff} (Corte). Se requiere desempate.` }
-    : tieGroup ? { type: 'medal', message: 'Empate en medallas detectado.' } : null;
-
-
+  const blockingTie = isCutoffTied
+    ? {
+        type: 'cutoff',
+        message: `Empate en el puesto ${roundStructure.nextRoundCutoff} (Corte). Se requiere desempate.`,
+      }
+    : tieGroup
+      ? { type: 'medal', message: 'Empate en medallas detectado.' }
+      : null;
 
   const getMedalEmoji = (position: number) => {
     if (position === 1) return '🥇';
@@ -131,174 +142,226 @@ export default function ResultadosFinales({
     return '';
   };
 
+  const getPodiumCardClass = (position: number) => {
+    if (position === 1) {
+      return 'bg-[linear-gradient(180deg,rgba(255,210,76,0.3)_0%,rgba(92,61,8,0.72)_100%)] border border-amber-300/30';
+    }
+    if (position === 2) {
+      return 'bg-[linear-gradient(180deg,rgba(203,213,225,0.22)_0%,rgba(51,65,85,0.72)_100%)] border border-slate-300/20';
+    }
+    return 'bg-[linear-gradient(180deg,rgba(251,146,60,0.24)_0%,rgba(95,45,12,0.72)_100%)] border border-orange-300/20';
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
-      <ModalContent>
-        <ModalHeader className="flex flex-col gap-1">
-          <h2 className="text-3xl font-bold">Resultados Finales</h2>
-          <div className="flex gap-2 mt-2">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="5xl"
+      scrollBehavior="inside"
+      backdrop="blur"
+      classNames={{
+        backdrop: 'bg-slate-950/70',
+      }}
+    >
+      <ModalContent className="app-panel max-h-[92vh] overflow-hidden rounded-[1.75rem] text-slate-100">
+        <ModalHeader className="flex flex-col gap-4 border-b border-[rgba(80,125,196,0.16)] px-7 py-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-bold text-white">
+                Resultados Finales
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Resumen de ranking, podio y estado general de la ronda actual.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
             {area && (
-              <Chip size="sm" color="primary">
+              <Chip size="sm" className="border border-sky-400/20 bg-sky-500/15 text-sky-100">
                 Área {area}
               </Chip>
             )}
             {categoria && (
-              <Chip size="sm" color="secondary">
+              <Chip size="sm" className="border border-fuchsia-400/20 bg-fuchsia-500/15 text-fuchsia-100">
                 {categoria}
               </Chip>
             )}
-            <Chip size="sm" variant="flat">
+            <Chip size="sm" className="border border-slate-300/10 bg-slate-200/10 text-slate-200">
               {competidores.length} Competidores
             </Chip>
           </div>
 
           {blockingTie && (
-            <div className={`mt-4 p-4 rounded-lg flex justify-between items-center ${isCutoffTied ? 'bg-red-50 dark:bg-red-900/30 border-red-200' : 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200'}`}>
-              <div>
-                <h3 className={`text-lg font-bold ${isCutoffTied ? 'text-red-700' : 'text-yellow-700'}`}>
-                  {isCutoffTied ? '🛑 Empate Crítico en Corte' : '⚠️ Empate Detectado'}
-                </h3>
-                <p className="text-sm">{blockingTie.message}</p>
-                {tieGroup && (
-                  <div className="flex gap-2 mt-1">
-                    {tieGroup.map(c => <Chip key={c.id} size="sm">{c.Nombre}</Chip>)}
-                  </div>
+            <div
+              className={`rounded-[1.1rem] border px-5 py-4 ${
+                isCutoffTied
+                  ? 'border-rose-400/25 bg-rose-500/12'
+                  : 'border-amber-300/25 bg-amber-500/12'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3
+                    className={`text-lg font-black ${
+                      isCutoffTied ? 'text-rose-200' : 'text-amber-100'
+                    }`}
+                  >
+                    {isCutoffTied ? 'Empate Crítico en Corte' : 'Empate Detectado'}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-300">{blockingTie.message}</p>
+                  {tieGroup && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {tieGroup.map((c) => (
+                        <Chip
+                          key={c.id}
+                          size="sm"
+                          className="border border-white/10 bg-white/8 text-slate-100"
+                        >
+                          {c.Nombre}
+                        </Chip>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {onStartTieBreaker && (
+                  <Button
+                    className="bg-amber-400 text-slate-950 font-semibold"
+                    onPress={() => onStartTieBreaker(tieGroup ? tieGroup.map((c) => c.id) : [])}
+                  >
+                    Generar Desempate
+                  </Button>
                 )}
               </div>
-              {onStartTieBreaker && (
-                <Button
-                  color="warning"
-                  onPress={() => onStartTieBreaker(tieGroup ? tieGroup.map(c => c.id) : [])}
-                >
-                  Generar Ronda de Desempate
-                </Button>
-              )}
             </div>
           )}
 
-          {showNextRoundButton && !isCutoffTied && competidoresEvaluados.length >= (roundStructure.nextRoundCutoff || 0) && (
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400">Siguiente Ronda: {roundStructure.label}</h3>
-                <p className="text-sm">Clasifican los mejores {roundStructure.nextRoundCutoff} competidores.</p>
+          {showNextRoundButton &&
+            !isCutoffTied &&
+            competidoresEvaluados.length >= (roundStructure.nextRoundCutoff || 0) && (
+              <div className="rounded-[1.1rem] border border-sky-400/20 bg-sky-500/10 px-5 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-sky-100">
+                      Siguiente Ronda: {roundStructure.label}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-300">
+                      Clasifican los mejores {roundStructure.nextRoundCutoff} competidores.
+                    </p>
+                  </div>
+                  {onNextRound && (
+                    <Button
+                      className="app-button-primary"
+                      onPress={() =>
+                        roundStructure.nextRoundCutoff &&
+                        onNextRound(roundStructure.nextRoundCutoff)
+                      }
+                    >
+                      Pasar de Ronda
+                    </Button>
+                  )}
+                </div>
               </div>
-              {onNextRound && (
-                <Button
-                  color="primary"
-                  onPress={() => roundStructure.nextRoundCutoff && onNextRound(roundStructure.nextRoundCutoff)}
-                >
-                  Pasar a Siguiente Ronda
-                </Button>
-              )}
-            </div>
-          )}
-
+            )}
         </ModalHeader>
-        <ModalBody>
-          <div className="space-y-6">
-            {/* Podio - Top 3 */}
+
+        <ModalBody className="px-7 py-6">
+          <div className="space-y-8">
             {competidoresEvaluados.length >= 3 && (
               <div>
-                <h3 className="text-xl font-semibold mb-4 text-center">Podio</h3>
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                  {/* Segundo lugar */}
-                  <Card className="bg-gradient-to-br from-gray-300 to-gray-400">
-                    <CardBody className="text-center py-6">
-                      <div className="text-6xl mb-2">🥈</div>
-                      <p className="text-3xl font-bold text-white mb-1">2°</p>
-                      <p className="text-xl font-semibold text-white mb-2">
-                        {competidoresEvaluados[1].Nombre}
-                      </p>
-                      <p className="text-3xl font-bold text-white">
-                        {competidoresEvaluados[1].PuntajeFinal?.toFixed(2)}
-                      </p>
-                    </CardBody>
-                  </Card>
+                <h3 className="mb-5 text-xl font-black text-slate-50">Podio</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {[1, 0, 2].map((podiumIndex, visualIndex) => {
+                    const competidor = competidoresEvaluados[podiumIndex];
+                    const position = podiumIndex + 1;
+                    const elevated = visualIndex === 1;
 
-                  {/* Primer lugar */}
-                  <Card className="bg-gradient-to-br from-yellow-400 to-yellow-600 -mt-4">
-                    <CardBody className="text-center py-8">
-                      <div className="text-7xl mb-2">🥇</div>
-                      <p className="text-4xl font-bold text-white mb-1">1°</p>
-                      <p className="text-2xl font-semibold text-white mb-2">
-                        {competidoresEvaluados[0].Nombre}
-                      </p>
-                      <p className="text-3xl font-bold text-white">
-                        {competidoresEvaluados[0].PuntajeFinal?.toFixed(2)}
-                      </p>
-                    </CardBody>
-                  </Card>
-
-                  {/* Tercer lugar */}
-                  <Card className="bg-gradient-to-br from-orange-400 to-orange-600">
-                    <CardBody className="text-center py-6">
-                      <div className="text-6xl mb-2">🥉</div>
-                      <p className="text-3xl font-bold text-white mb-1">3°</p>
-                      <p className="text-xl font-semibold text-white mb-2">
-                        {competidoresEvaluados[2].Nombre}
-                      </p>
-                      <p className="text-3xl font-bold text-white">
-                        {competidoresEvaluados[2].PuntajeFinal?.toFixed(2)}
-                      </p>
-                    </CardBody>
-                  </Card>
+                    return (
+                      <Card
+                        key={competidor.id}
+                        className={`rounded-[1.5rem] ${getPodiumCardClass(position)} ${
+                          elevated ? 'md:-translate-y-4' : ''
+                        }`}
+                      >
+                        <CardBody className="py-7 text-center">
+                          <div className="mb-3 text-6xl">{getMedalEmoji(position)}</div>
+                          <p className="text-sm font-black uppercase tracking-[0.2em] text-white/70">
+                            {position}°
+                          </p>
+                          <p className="mt-2 text-2xl font-black text-white">
+                            {competidor.Nombre}
+                          </p>
+                          <p className="mt-3 text-4xl font-black text-white">
+                            {competidor.PuntajeFinal?.toFixed(2)}
+                          </p>
+                        </CardBody>
+                      </Card>
+                    );
+                  })}
                 </div>
-                <Divider className="my-6" />
+                <Divider className="app-subtle-divider my-8" />
               </div>
             )}
 
-            {/* Ranking completo */}
             {competidoresEvaluados.length > 0 && (
               <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-semibold">Ranking Completo</h3>
-                  <div className="text-xs text-gray-500">
-                    * Ordenado por: Total &gt; Min Incluido &gt; Max Incluido
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <h3 className="text-xl font-black text-slate-50">Ranking Completo</h3>
+                  <div className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                    Total &gt; Min incluido &gt; Max incluido
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   {competidoresEvaluados.map((competidor, index) => {
-                    const metrics = competidoresConMetricas.find(c => c.competidor.id === competidor.id)?.metrics;
+                    const metrics = competidoresConMetricas.find(
+                      (c) => c.competidor.id === competidor.id
+                    )?.metrics;
 
                     return (
-                      <Card key={competidor.id}>
-                        <CardBody>
-                          <div className="flex justify-between items-center">
+                      <Card
+                        key={competidor.id}
+                        className="app-list-row rounded-[1.5rem]"
+                      >
+                        <CardBody className="py-5">
+                          <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-4">
                               <div
-                                className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${index === 0
-                                  ? 'bg-yellow-500 text-white'
-                                  : index === 1
-                                    ? 'bg-gray-400 text-white'
-                                    : index === 2
-                                      ? 'bg-orange-600 text-white'
-                                      : 'bg-blue-500 text-white'
-                                  }`}
+                                className={`flex h-12 w-12 items-center justify-center rounded-full text-xl font-black ${
+                                  index === 0
+                                    ? 'bg-amber-400 text-slate-950'
+                                    : index === 1
+                                      ? 'bg-slate-300 text-slate-950'
+                                      : index === 2
+                                        ? 'bg-orange-500 text-white'
+                                        : 'bg-sky-500 text-white'
+                                }`}
                               >
                                 {getMedalEmoji(index + 1) || index + 1}
                               </div>
                               <div>
-                                <p className="text-xl font-semibold">
+                                <p className="text-xl font-bold text-slate-50">
                                   {competidor.Nombre}
                                 </p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  Edad: {competidor.Edad}
-                                </p>
+                                <p className="text-sm text-slate-400">Edad: {competidor.Edad}</p>
                                 {competidor.PuntajesJueces && competidor.PuntajesJueces.length > 0 && (
-                                  <div className="flex flex-col gap-1 mt-1">
-                                    <div className="flex gap-2">
-                                      {competidor.PuntajesJueces.map((puntaje, idx) => (
-                                        puntaje && (
-                                          <Chip key={idx} size="sm" variant="flat" className="text-xs h-6">
-                                            J{idx + 1}: {puntaje}
-                                          </Chip>
-                                        )
-                                      ))}
+                                  <div className="mt-2 flex flex-col gap-2">
+                                    <div className="flex flex-wrap gap-2">
+                                      {competidor.PuntajesJueces.map(
+                                        (puntaje, idx) =>
+                                          puntaje && (
+                                            <Chip
+                                              key={idx}
+                                              size="sm"
+                                              className="border border-sky-400/14 bg-sky-500/10 text-sky-100"
+                                            >
+                                              J{idx + 1}: {puntaje}
+                                            </Chip>
+                                          )
+                                      )}
                                     </div>
-                                    {/* Mostrar desglose de desempate y min/max total */}
                                     {metrics && (
-                                      <div className="flex gap-2 text-xs text-gray-400">
+                                      <div className="flex gap-3 text-xs uppercase tracking-[0.14em] text-slate-500">
                                         <span>Min: {metrics.minTotal?.toFixed(1) || '-'}</span>
                                         <span>Max: {metrics.maxTotal?.toFixed(1) || '-'}</span>
                                       </div>
@@ -308,36 +371,39 @@ export default function ResultadosFinales({
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-4xl font-bold text-green-600 dark:text-green-400">
+                              <p className="text-4xl font-black text-emerald-400">
                                 {competidor.PuntajeFinal?.toFixed(2)}
                               </p>
                             </div>
                           </div>
                         </CardBody>
                       </Card>
-                    )
+                    );
                   })}
                 </div>
               </div>
             )}
 
-            {/* Competidores no evaluados */}
             {competidoresNoEvaluados.length > 0 && (
               <div>
-                <Divider className="my-6" />
-                <h3 className="text-xl font-semibold mb-4">No Evaluados</h3>
-                <div className="space-y-2">
+                <Divider className="app-subtle-divider my-6" />
+                <h3 className="mb-4 text-xl font-black text-slate-50">No Evaluados</h3>
+                <div className="space-y-3">
                   {competidoresNoEvaluados.map((competidor) => (
-                    <Card key={competidor.id} className="bg-gray-100 dark:bg-gray-800">
-                      <CardBody>
-                        <div className="flex justify-between items-center">
+                    <Card
+                      key={competidor.id}
+                      className="app-list-row rounded-[1.5rem]"
+                    >
+                      <CardBody className="py-5">
+                        <div className="flex items-center justify-between gap-4">
                           <div>
-                            <p className="font-semibold">{competidor.Nombre}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Edad: {competidor.Edad}
-                            </p>
+                            <p className="text-lg font-bold text-slate-100">{competidor.Nombre}</p>
+                            <p className="text-sm text-slate-400">Edad: {competidor.Edad}</p>
                           </div>
-                          <Chip size="sm" variant="flat">
+                          <Chip
+                            size="sm"
+                            className="border border-slate-300/10 bg-slate-200/10 text-slate-200"
+                          >
                             Sin evaluar
                           </Chip>
                         </div>
@@ -348,23 +414,26 @@ export default function ResultadosFinales({
               </div>
             )}
 
-            {/* Competidores descalificados */}
             {competidoresDescalificados.length > 0 && (
               <div>
-                <Divider className="my-6" />
-                <h3 className="text-xl font-semibold mb-4">Descalificados</h3>
-                <div className="space-y-2">
+                <Divider className="app-subtle-divider my-6" />
+                <h3 className="mb-4 text-xl font-black text-slate-50">Descalificados</h3>
+                <div className="space-y-3">
                   {competidoresDescalificados.map((competidor) => (
-                    <Card key={competidor.id} className="bg-red-50 dark:bg-red-900/20">
-                      <CardBody>
-                        <div className="flex justify-between items-center">
+                    <Card
+                      key={competidor.id}
+                      className="rounded-[1.5rem] border border-rose-400/18 bg-rose-500/10"
+                    >
+                      <CardBody className="py-5">
+                        <div className="flex items-center justify-between gap-4">
                           <div>
-                            <p className="font-semibold">{competidor.Nombre}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Edad: {competidor.Edad}
-                            </p>
+                            <p className="text-lg font-bold text-slate-100">{competidor.Nombre}</p>
+                            <p className="text-sm text-slate-300/80">Edad: {competidor.Edad}</p>
                           </div>
-                          <Chip size="sm" color="danger">
+                          <Chip
+                            size="sm"
+                            className="border border-rose-300/20 bg-rose-500/15 text-rose-100"
+                          >
                             Kiken
                           </Chip>
                         </div>
@@ -375,25 +444,27 @@ export default function ResultadosFinales({
               </div>
             )}
 
-            {/* Mensaje si no hay resultados */}
             {competidoresEvaluados.length === 0 &&
               competidoresNoEvaluados.length === 0 &&
               competidoresDescalificados.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="text-6xl mb-4">🥋</div>
-                  <p className="text-xl">No hay resultados para mostrar</p>
-                  <p className="text-sm mt-2">
-                    Agrega competidores y evalúalos para ver los resultados
+                <div className="app-empty-state min-h-0 py-16">
+                  <div className="mb-4 text-6xl">🥋</div>
+                  <p className="text-xl font-black text-slate-200">
+                    No hay resultados para mostrar
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Agrega competidores y evalúalos para ver los resultados.
                   </p>
                 </div>
               )}
           </div>
         </ModalBody>
-        <ModalFooter className="flex justify-between">
-          <div className="flex gap-2">
+
+        <ModalFooter className="flex justify-between gap-4 border-t border-[rgba(80,125,196,0.16)] px-7 py-5">
+          <div className="flex flex-wrap gap-3">
             {onExportExcel && (
               <Button
-                color="default"
+                className="app-button-secondary"
                 variant="bordered"
                 onPress={onExportExcel}
                 isDisabled={competidores.length === 0}
@@ -403,7 +474,7 @@ export default function ResultadosFinales({
             )}
             {onExportPDF && (
               <Button
-                color="default"
+                className="app-button-secondary"
                 variant="bordered"
                 onPress={onExportPDF}
                 isDisabled={competidores.length === 0}
@@ -412,7 +483,7 @@ export default function ResultadosFinales({
               </Button>
             )}
           </div>
-          <Button color="primary" onPress={onClose}>
+          <Button className="app-button-primary" onPress={onClose}>
             Cerrar
           </Button>
         </ModalFooter>

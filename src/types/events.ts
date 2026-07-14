@@ -31,6 +31,7 @@ export interface KataStateSync {
   competidor: string;
   id?: number;
   categoria: string;
+  numJudges?: number;
   puntajes: string[];
   puntajeFinal: string;
   puntajeMenor: string;

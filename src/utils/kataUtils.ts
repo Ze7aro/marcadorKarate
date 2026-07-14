@@ -11,10 +11,11 @@ export interface KataScoreMetrics {
 /**
  * Calculates metrics for Kata scoring including tie-breaking criteria.
  * Rules:
- * 1. Exclude highest and lowest scores (if 5 judges).
- * 2. Total = Sum of remaining (middle 3).
- * 3. Tie-breaker 1: Lowest of the middle 3 (Min Included).
- * 4. Tie-breaker 2: Highest of the middle 3 (Max Included).
+ * 1. With 5 judges, exclude highest and lowest scores.
+ * 2. With 3 judges, exclude the highest score.
+ * 3. Total = Sum of the remaining scores.
+ * 4. Tie-breaker 1: Lowest included score (Min Included).
+ * 5. Tie-breaker 2: Highest included score (Max Included).
  */
 export const calculateKataMetrics = (
   puntajes: (string | number)[],
@@ -51,14 +52,14 @@ export const calculateKataMetrics = (
     total = includedScores.reduce((a, b) => a + b, 0);
     minTotal = sortedScores[0];
     maxTotal = sortedScores[4];
+  } else if (numJudges === 3) {
+    includedScores = sortedScores.slice(0, 2);
+    total = includedScores.reduce((a, b) => a + b, 0);
+    minTotal = sortedScores[0];
+    maxTotal = sortedScores[2];
   } else {
-    // If 3 judges, use all (though usually WKF uses 5 or 7, 3 is simplified)
-    // Assuming for 3 judges we sum all? Or typically simplified rules.
-    // Based on user app: "total = sorted.reduce..." for != 5.
     includedScores = sortedScores;
     total = sortedScores.reduce((a, b) => a + b, 0);
-    // For 3 judges, maybe there's no dropped score? Or simplified min/max logic?
-    // We will leave minTotal/maxTotal undefined or just min/max of all.
     minTotal = sortedScores[0];
     maxTotal = sortedScores[sortedScores.length - 1];
   }

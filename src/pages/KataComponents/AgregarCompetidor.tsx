@@ -23,43 +23,40 @@ export default function AgregarCompetidor({
 }: AgregarCompetidorProps) {
   const [nombre, setNombre] = useState('');
   const [edad, setEdad] = useState('');
-  const [errors, setErrors] = useState<{ nombre?: string; edad?: string }>({});
+  const [errors, setErrors] = useState({ nombre: '', edad: '' });
+
+  const validateForm = () => {
+    const newErrors = { nombre: '', edad: '' };
+    let isValid = true;
+
+    if (!nombre.trim() || nombre.length < 3) {
+      newErrors.nombre = 'El nombre debe tener al menos 3 caracteres';
+      isValid = false;
+    }
+
+    const edadNum = parseInt(edad);
+    if (!edad || isNaN(edadNum) || edadNum < 5 || edadNum > 100) {
+      newErrors.edad = 'Edad debe estar entre 5 y 100';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleSubmit = () => {
+    if (validateForm()) {
+      onAdd(nombre.trim(), parseInt(edad));
+      showToast.success('Competidor agregado');
+      handleClose();
+    }
+  };
 
   const handleClose = () => {
     setNombre('');
     setEdad('');
-    setErrors({});
+    setErrors({ nombre: '', edad: '' });
     onClose();
-  };
-
-  const validate = (): boolean => {
-    const newErrors: { nombre?: string; edad?: string } = {};
-
-    if (!nombre.trim()) {
-      newErrors.nombre = 'El nombre es requerido';
-    } else if (nombre.trim().length < 3) {
-      newErrors.nombre = 'El nombre debe tener al menos 3 caracteres';
-    }
-
-    const edadNum = parseInt(edad);
-    if (!edad) {
-      newErrors.edad = 'La edad es requerida';
-    } else if (isNaN(edadNum) || edadNum < 5 || edadNum > 100) {
-      newErrors.edad = 'Ingresa una edad válida (5-100)';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = () => {
-    if (!validate()) {
-      return;
-    }
-
-    onAdd(nombre.trim(), parseInt(edad));
-    showToast.success('Competidor agregado');
-    handleClose();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -69,58 +66,69 @@ export default function AgregarCompetidor({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="md">
-      <ModalContent>
-        <ModalHeader>Agregar Competidor</ModalHeader>
-        <ModalBody>
-          <div className="space-y-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      placement="center"
+      backdrop="blur"
+      classNames={{ backdrop: 'bg-slate-950/70' }}
+    >
+      <ModalContent className="app-panel overflow-hidden rounded-[1.75rem] text-slate-100">
+        <ModalHeader className="flex flex-col gap-2 border-b border-[rgba(80,125,196,0.16)] px-8 py-6">
+          <h2 className="text-2xl font-bold text-white">Agregar Competidor</h2>
+          <p className="text-sm text-slate-400">
+            Carga manual de competidor para la ronda actual.
+          </p>
+        </ModalHeader>
+        <ModalBody className="px-8 py-6">
+          <div className="space-y-5">
             <Input
-              label="Nombre completo"
-              placeholder="Ej: Juan Pérez García"
-              value={nombre}
-              onChange={(e) => {
-                setNombre(e.target.value);
-                if (errors.nombre) {
-                  setErrors({ ...errors, nombre: undefined });
-                }
+              autoFocus
+              className="app-dark-input"
+              classNames={{
+                inputWrapper:
+                  'min-h-14 rounded-[1.1rem] bg-[rgba(8,17,32,0.84)] border border-[rgba(80,125,196,0.18)] shadow-none',
+                input: 'text-slate-100 placeholder:text-slate-500',
+                label: 'text-slate-300',
+                errorMessage: 'text-rose-300',
               }}
+              labelPlacement="outside-top"
+              label="Nombre"
+              placeholder="Ej: Juan Pérez"
+              variant="bordered"
+              value={nombre}
+              onValueChange={setNombre}
               onKeyPress={handleKeyPress}
               isInvalid={!!errors.nombre}
               errorMessage={errors.nombre}
-              autoFocus
             />
-
             <Input
-              label="Edad"
-              type="number"
-              placeholder="Ej: 25"
-              value={edad}
-              onChange={(e) => {
-                setEdad(e.target.value);
-                if (errors.edad) {
-                  setErrors({ ...errors, edad: undefined });
-                }
+              className="app-dark-input"
+              classNames={{
+                inputWrapper:
+                  'min-h-14 rounded-[1.1rem] bg-[rgba(8,17,32,0.84)] border border-[rgba(80,125,196,0.18)] shadow-none',
+                input: 'text-slate-100 placeholder:text-slate-500',
+                label: 'text-slate-300',
+                errorMessage: 'text-rose-300',
               }}
+              labelPlacement="outside-top"
+              label="Edad"
+              placeholder="Ej: 25"
+              type="number"
+              variant="bordered"
+              value={edad}
+              onValueChange={setEdad}
               onKeyPress={handleKeyPress}
               isInvalid={!!errors.edad}
               errorMessage={errors.edad}
-              min={5}
-              max={100}
             />
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Tip:</strong> También puedes importar múltiples competidores
-                desde un archivo Excel usando el botón "Importar desde Excel".
-              </p>
-            </div>
           </div>
         </ModalBody>
-        <ModalFooter>
-          <Button color="default" variant="flat" onPress={handleClose}>
+        <ModalFooter className="justify-end gap-3 border-t border-[rgba(80,125,196,0.16)] px-8 py-5">
+          <Button className="app-button-secondary" variant="flat" onPress={handleClose}>
             Cancelar
           </Button>
-          <Button color="primary" onPress={handleSubmit}>
+          <Button className="app-button-primary" onPress={handleSubmit}>
             Agregar
           </Button>
         </ModalFooter>
