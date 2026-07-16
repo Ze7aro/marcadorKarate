@@ -59,6 +59,10 @@ export default function KumitePage() {
 
   // Timer para el match actual
   const currentMatch = state.bracket ? getCurrentMatch(state.bracket) : null;
+  const infractionButtonClass =
+    "border border-amber-300/28 bg-amber-500/22 text-amber-50 font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
+  const winnerButtonClass =
+    "border border-rose-400/55 bg-rose-500/12 text-rose-100 font-bold shadow-[0_0_0_1px_rgba(244,63,94,0.18)]";
 
   // Verificar si el torneo está completado
   const isTournamentCompleted =
@@ -702,7 +706,7 @@ export default function KumitePage() {
                 <div className="space-y-6">
                   {/* Timer */}
                   <div className="text-center">
-                    <div className="text-6xl font-bold mb-4">
+                    <div className="text-6xl font-bold mb-4 text-white">
                       {formattedTime}
                     </div>
                     <div className="flex justify-center gap-2">
@@ -732,13 +736,13 @@ export default function KumitePage() {
                     {/* Aka (Rojo) */}
                     <div className="rounded-2xl p-4 bg-[rgba(93,22,37,0.48)] border border-rose-500/25">
                       <div className="text-center mb-4">
-                        <Chip color="danger" className="mb-2">
+                        <Chip color="danger" className="mb-2 text-white">
                           {t("kumite:competitor.aka")}
                         </Chip>
-                        <h3 className="text-xl font-bold">
+                        <h3 className="text-xl font-bold text-white">
                           {currentMatch.competidorAka?.Nombre || "BYE"}
                         </h3>
-                        <div className="text-4xl font-bold my-4">
+                        <div className="text-4xl font-bold my-4 text-white">
                           {currentMatch.scoreAka}
                         </div>
                       </div>
@@ -824,8 +828,8 @@ export default function KumitePage() {
                                 <Button
                                   key={p}
                                   size="sm"
-                                  variant="flat"
-                                  color="warning"
+                                  variant="bordered"
+                                  className={infractionButtonClass}
                                   onPress={() => handleAddPenalty("aka", p)}
                                   isDisabled={
                                     currentMatch.status === "completed" ||
@@ -848,8 +852,8 @@ export default function KumitePage() {
                                 <Button
                                   key={w}
                                   size="sm"
-                                  variant="flat"
-                                  color="warning"
+                                  variant="bordered"
+                                  className={infractionButtonClass}
                                   onPress={() => handleAddWarning("aka", w)}
                                   isDisabled={
                                     currentMatch.status === "completed" ||
@@ -866,8 +870,8 @@ export default function KumitePage() {
 
                           <Button
                             size="sm"
-                            color="danger"
                             variant="bordered"
+                            className={winnerButtonClass}
                             fullWidth
                             onPress={() =>
                               handleDeclareWinner(
@@ -883,7 +887,7 @@ export default function KumitePage() {
                     </div>
 
                     {/* Shiro (Blanco) */}
-                    <div className="rounded-2xl p-4 bg-[rgba(226,232,240,0.14)] border border-slate-400/20">
+                    <div className="rounded-2xl p-4 bg-[rgba(255,255,255,0.5)] border border-slate-400/20">
                       <div className="text-center mb-4">
                         <Chip className="mb-2 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white">
                           {t("kumite:competitor.shiro")}
@@ -979,8 +983,8 @@ export default function KumitePage() {
                                 <Button
                                   key={p}
                                   size="sm"
-                                  variant="flat"
-                                  color="warning"
+                                  variant="bordered"
+                                  className={infractionButtonClass}
                                   onPress={() => handleAddPenalty("shiro", p)}
                                   isDisabled={
                                     currentMatch.status === "completed" ||
@@ -1003,8 +1007,8 @@ export default function KumitePage() {
                                 <Button
                                   key={w}
                                   size="sm"
-                                  variant="flat"
-                                  color="warning"
+                                  variant="bordered"
+                                  className={infractionButtonClass}
                                   onPress={() => handleAddWarning("shiro", w)}
                                   isDisabled={
                                     currentMatch.status === "completed" ||
@@ -1021,8 +1025,8 @@ export default function KumitePage() {
 
                           <Button
                             size="sm"
-                            color="danger"
                             variant="bordered"
+                            className={winnerButtonClass}
                             fullWidth
                             onPress={() =>
                               handleDeclareWinner(

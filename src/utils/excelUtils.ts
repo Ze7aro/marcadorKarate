@@ -1,37 +1,31 @@
 import * as XLSX from 'xlsx';
 import { Competidor } from '@/types';
+import { KataRoundResult } from './kataUtils';
 
-/**
- * Lee un archivo Excel y extrae los competidores
- * Formato esperado:
- * - Celda B1: Categoría
- * - Columnas: Nombre | Edad | Kyu/Dan (opcional para Kata)
- */
+const createCompetitorUid = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `comp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
 export async function readExcelFile(fileContent: ArrayBuffer): Promise<{
   competidores: Competidor[];
   categoria: string;
 }> {
   try {
-    // Leer el workbook
     const workbook = XLSX.read(fileContent, { type: 'array' });
-
-    // Obtener la primera hoja
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
-
-    // Extraer categoría de la celda B1
     const categoriaCell = worksheet['B1'];
     const categoria = categoriaCell ? XLSX.utils.format_cell(categoriaCell) : '';
 
-    // Convertir hoja a JSON (asumiendo que la data empieza en la fila 2)
     const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-      range: 1, // Empezar desde la fila 2 (índice 1)
-      defval: ''
+      range: 1,
+      defval: '',
     });
 
-    // Mapear a competidores
     const competidores: Competidor[] = jsonData.map((row: any, index: number) => ({
       id: index + 1,
+      competitorUid: createCompetitorUid(),
       Nombre: row['Nombre'] || row['NOMBRE'] || '',
       Edad: parseInt(row['Edad'] || row['EDAD'] || '0'),
       Categoria: categoria,
@@ -47,45 +41,57 @@ export async function readExcelFile(fileContent: ArrayBuffer): Promise<{
   }
 }
 
-/**
- * Genera un archivo Excel con los resultados de una competencia
- */
-export function generateExcelFile(competidores: Competidor[], categoria: string, area: string): ArrayBuffer {
+export function generateExcelFile(
+  competidores: Competidor[],
+  categoria: string,
+  area: string,
+  finalResults?: KataRoundResult[],
+): ArrayBuffer {
   try {
-    // Crear un nuevo workbook
     const workbook = XLSX.utils.book_new();
+    const usingAccumulatedResults = !!finalResults && finalResults.length > 0;
 
-    // Preparar datos para la hoja
     const data: (string | number)[][] = [
-      // Fila de categoría
-      ['Categoría:', categoria, '', '', '', 'Área:', area],
-      [], // Fila vacía
-      // Encabezados
-      ['Posición', 'Nombre', 'Edad', 'Puntaje Final', 'Puntajes de Jueces', 'Estado'],
+      ['Categoria:', categoria, '', '', '', 'Area:', area],
+      [],
+      usingAccumulatedResults
+        ? ['Posicion', 'Nombre', 'Edad', 'Ronda Anterior', 'Ronda Actual', 'Total']
+        : ['Posicion', 'Nombre', 'Edad', 'Puntaje Final', 'Puntajes de Jueces', 'Estado'],
     ];
 
-    // Agregar competidores ordenados por puntaje
-    const competidoresOrdenados = [...competidores]
-      .filter(c => c.PuntajeFinal !== null)
-      .sort((a, b) => (b.PuntajeFinal || 0) - (a.PuntajeFinal || 0));
+    if (usingAccumulatedResults) {
+      finalResults.forEach((comp, index) => {
+        data.push([
+          index + 1,
+          comp.nombre,
+          comp.edad,
+          comp.round1Score?.toFixed(2) || '',
+          comp.round2Score?.toFixed(2) || '',
+          comp.total.toFixed(2),
+        ]);
+      });
+    } else {
+      const competidoresOrdenados = [...competidores]
+        .filter((c) => c.PuntajeFinal !== null)
+        .sort((a, b) => (b.PuntajeFinal || 0) - (a.PuntajeFinal || 0));
 
-    competidoresOrdenados.forEach((comp, index) => {
-      const puntajesJueces = comp.PuntajesJueces?.join(', ') || '';
-      const estado = comp.Kiken ? 'Descalificado' : 'Evaluado';
+      competidoresOrdenados.forEach((comp, index) => {
+        const puntajesJueces = comp.PuntajesJueces?.join(', ') || '';
+        const estado = comp.Kiken ? 'Descalificado' : 'Evaluado';
 
-      data.push([
-        index + 1,
-        comp.Nombre,
-        comp.Edad,
-        comp.PuntajeFinal?.toFixed(2) || '',
-        puntajesJueces,
-        estado,
-      ]);
-    });
+        data.push([
+          index + 1,
+          comp.Nombre,
+          comp.Edad,
+          comp.PuntajeFinal?.toFixed(2) || '',
+          puntajesJueces,
+          estado,
+        ]);
+      });
+    }
 
-    // Agregar competidores no evaluados
-    const noEvaluados = competidores.filter(c => c.PuntajeFinal === null);
-    if (noEvaluados.length > 0) {
+    const noEvaluados = competidores.filter((c) => c.PuntajeFinal === null);
+    if (!usingAccumulatedResults && noEvaluados.length > 0) {
       data.push([]);
       data.push(['Competidores no evaluados:']);
       noEvaluados.forEach((comp) => {
@@ -93,59 +99,43 @@ export function generateExcelFile(competidores: Competidor[], categoria: string,
       });
     }
 
-    // Crear hoja de cálculo
     const worksheet = XLSX.utils.aoa_to_sheet(data);
-
-    // Aplicar estilos/anchos de columna
     worksheet['!cols'] = [
-      { wch: 10 }, // Posición
-      { wch: 25 }, // Nombre
-      { wch: 8 },  // Edad
-      { wch: 15 }, // Puntaje Final
-      { wch: 30 }, // Puntajes de Jueces
-      { wch: 15 }, // Estado
+      { wch: 10 },
+      { wch: 25 },
+      { wch: 8 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 15 },
     ];
 
-    // Agregar hoja al workbook
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Resultados');
 
-    // Generar buffer
-    const excelBuffer = XLSX.write(workbook, {
+    return XLSX.write(workbook, {
       type: 'array',
       bookType: 'xlsx',
       cellStyles: true,
     });
-
-    return excelBuffer;
   } catch (error) {
     console.error('Error generating Excel file:', error);
     throw new Error('Error al generar el archivo Excel');
   }
 }
 
-/**
- * Genera un template de Excel para importar competidores
- */
 export function generateExcelTemplate(): ArrayBuffer {
   const workbook = XLSX.utils.book_new();
 
   const data = [
-    ['Categoría:', 'INGRESA_LA_CATEGORIA_AQUI'],
+    ['Categoria:', 'INGRESA_LA_CATEGORIA_AQUI'],
     [],
     ['Nombre', 'Edad', 'Kyu/Dan (opcional)'],
-    ['Juan Pérez', 25, '1er Dan'],
-    ['María García', 22, '2do Kyu'],
-    ['Carlos López', 28, '3er Dan'],
+    ['Juan Perez', 25, '1er Dan'],
+    ['Maria Garcia', 22, '2do Kyu'],
+    ['Carlos Lopez', 28, '3er Dan'],
   ];
 
   const worksheet = XLSX.utils.aoa_to_sheet(data);
-
-  worksheet['!cols'] = [
-    { wch: 25 },
-    { wch: 10 },
-    { wch: 20 },
-  ];
-
+  worksheet['!cols'] = [{ wch: 25 }, { wch: 10 }, { wch: 20 }];
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Competidores');
 
   return XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });

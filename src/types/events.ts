@@ -9,6 +9,7 @@ export const KATA_EVENTS = {
 
 export interface Competidor {
   id: number;
+  competitorUid?: string;
   Nombre: string;
   Edad: number;
   Categoria?: string;

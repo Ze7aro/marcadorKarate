@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Button,
   Card,
@@ -16,7 +16,12 @@ import {
   DropdownTrigger,
 } from "@heroui/react";
 import { useKata } from "@/context/KataContext";
-import { calculateKataMetrics, compareCompetitors } from "@/utils/kataUtils";
+import {
+  calculateKataMetrics,
+  compareCompetitors,
+  getRoundDefinitions,
+  getRoundStructure,
+} from "@/utils/kataUtils";
 import { showToast } from "@/utils/toast";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -34,6 +39,11 @@ import { PUNTUACIONES } from "@/utils/puntuaciones";
 import { useCategoryCatalog } from "@/hooks/useCategoryCatalog";
 
 export default function KataPage() {
+  const createCompetitorUid = () =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `comp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
   const navigate = useNavigate();
   const { t } = useTranslation(["kumite", "common"]);
 
@@ -43,6 +53,19 @@ export default function KataPage() {
   const [showAgregarCompetidor, setShowAgregarCompetidor] = useState(false);
   const [showResultados, setShowResultados] = useState(false);
   const kataCategories = getByDiscipline("kata");
+  const roundDefinitions = useMemo(
+    () => getRoundDefinitions(state.roundFormat),
+    [state.roundFormat],
+  );
+  const roundStructure = useMemo(
+    () => getRoundStructure(state.roundFormat, state.previousRounds.length + 1),
+    [state.previousRounds.length, state.roundFormat],
+  );
+  const roundFormatOptions = [
+    { key: "tokui_only", label: "Tokui" },
+    { key: "sentei_tokui", label: "Sentei/Tokui + Tokui" },
+    { key: "full_three_rounds", label: "Shitei/Sentei + Sentei/Tokui + Tokui" },
+  ];
 
   const CANTIDADJUECES = [
     { key: 3, label: "3 Jueces" },
@@ -96,24 +119,6 @@ export default function KataPage() {
     }
   };
 
-  // Función para guardar competencia
-  /*   const handleGuardarCompetencia = async () => {
-      try {
-        if (state.competidores.length === 0) {
-          showToast.error('No hay competidores para guardar');
-          return;
-        }
-  
-        const loadingToast = showToast.loading('Guardando competencia...');
-        const competenciaId = await guardarCompetencia();
-        showToast.dismiss(loadingToast);
-        showToast.success(`Competencia guardada con ID: ${competenciaId}`);
-      } catch (error) {
-        console.error('Error saving competition:', error);
-        showToast.error('Error al guardar competencia');
-      }
-    }; */
-
   // Función para resetear todo
   const handleReset = () => {
     if (confirm("¿Estás seguro de que quieres resetear todos los datos?")) {
@@ -127,6 +132,7 @@ export default function KataPage() {
     // Convertir competidores de DB a formato de la app
     const competidores = competencia.competidores.map((comp, index) => ({
       id: index + 1,
+      competitorUid: createCompetitorUid(),
       Nombre: comp.nombre,
       Edad: comp.edad,
       PuntajeFinal: comp.puntajeFinal,
@@ -169,6 +175,7 @@ export default function KataPage() {
           (competidor, index) => ({
             ...competidor,
             id: index + 1,
+            competitorUid: competidor.competitorUid || createCompetitorUid(),
             Categoria: selectedCategory.categoria,
             PuntajeFinal: null,
             PuntajesJueces: [],
@@ -267,6 +274,7 @@ export default function KataPage() {
   const handleAddCompetidor = (nombre: string, edad: number) => {
     const nuevoCompetidor: Competidor = {
       id: state.competidores.length + 1,
+      competitorUid: createCompetitorUid(),
       Nombre: nombre,
       Edad: edad,
       Categoria: state.categoria,
@@ -309,9 +317,15 @@ export default function KataPage() {
   const handleStartTieBreaker = (tiedCompetitorIds: number[]) => {
     // 1. Archivar ronda actual
     const currentRoundNumber = state.previousRounds.length + 1;
+    const currentRoundDefinition =
+      roundDefinitions[
+        Math.min(currentRoundNumber - 1, roundDefinitions.length - 1)
+      ];
     const roundToArchive = {
       id: currentRoundNumber,
-      nombre: `Ronda ${currentRoundNumber}`,
+      nombre: currentRoundDefinition.label,
+      key: currentRoundDefinition.key,
+      countsForFinal: currentRoundDefinition.countsForFinal,
       competidores: [...state.competidores], // Copia profunda de competidores actuales
       fecha: new Date().toISOString(),
     };
@@ -335,7 +349,7 @@ export default function KataPage() {
   };
 
   // Función para avanzar a la siguiente ronda (cut off)
-  const handleAdvanceRound = (cutoff: number) => {
+  const handleAdvanceRound = (selectedIds: number[]) => {
     // 1. Calcular métricas y ordenar
     const competidoresConMetricas = state.competidores
       .filter((c) => c.PuntajeFinal !== null && !c.Kiken)
@@ -351,30 +365,69 @@ export default function KataPage() {
       .sort((a, b) => compareCompetitors(a.metrics, b.metrics))
       .map((w) => w.competidor);
 
-    const winners = sorted.slice(0, cutoff);
+    const winners = sorted.filter((competidor) =>
+      selectedIds.includes(competidor.id),
+    );
+
+    if (winners.length === 0) {
+      showToast.error(
+        "Selecciona al menos un competidor para la siguiente ronda",
+      );
+      return;
+    }
 
     // 2. Archivar ronda actual
     const currentRoundNumber = state.previousRounds.length + 1;
+    const currentRoundDefinition =
+      roundDefinitions[
+        Math.min(currentRoundNumber - 1, roundDefinitions.length - 1)
+      ];
     const roundToArchive = {
       id: currentRoundNumber,
-      nombre: `Ronda ${currentRoundNumber}`,
+      nombre: currentRoundDefinition.label,
+      key: currentRoundDefinition.key,
+      countsForFinal: currentRoundDefinition.countsForFinal,
       competidores: [...state.competidores],
       fecha: new Date().toISOString(),
     };
     dispatch({ type: "ARCHIVE_ROUND", payload: roundToArchive });
 
     // 3. Preparar nueva ronda con los ganadores
-    const nextRoundCompetitors = winners.map((c) => ({
-      ...c,
-      PuntajeFinal: null,
-      PuntajesJueces: [],
-    }));
+    const nextRoundCompetitors = [...winners]
+      .sort(
+        (a, b) =>
+          (a.PuntajeFinal ?? Number.POSITIVE_INFINITY) -
+          (b.PuntajeFinal ?? Number.POSITIVE_INFINITY),
+      )
+      .map((c) => ({
+        ...c,
+        PuntajeFinal: null,
+        PuntajesJueces: [],
+      }));
 
     dispatch({ type: "SET_COMPETIDORES", payload: nextRoundCompetitors });
     setShowResultados(false);
     showToast.success(
       `Siguiente ronda iniciada con ${winners.length} competidores`,
     );
+  };
+
+  const centerSelectedJudgeScoreOption = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const selectedOption = document.querySelector(
+          '[role="option"][aria-selected="true"]',
+        ) as HTMLElement | null;
+
+        if (!selectedOption) {
+          return;
+        }
+
+        selectedOption.scrollIntoView({
+          block: "center",
+        });
+      });
+    });
   };
 
   return (
@@ -394,13 +447,6 @@ export default function KataPage() {
             >
               ← {t("common:buttons.back")}
             </Button>
-            {/*             <Button
-              color="secondary"
-              variant="flat"
-              onPress={() => setShowHistorial(true)}
-            >
-              Ver Historial
-            </Button> */}
 
             <Button
               className="app-button-primary"
@@ -421,13 +467,6 @@ export default function KataPage() {
               </Button>
             )}
 
-            {/*             <Button
-              color="success"
-              onPress={handleGuardarCompetencia}
-              isDisabled={state.competidores.length === 0}
-            >
-              Guardar Competencia
-            </Button> */}
             <Dropdown>
               <DropdownTrigger>
                 <Button className="app-button-secondary">Exportar</Button>
@@ -461,6 +500,20 @@ export default function KataPage() {
               Resetear
             </Button>
 
+            {roundStructure.nextRoundCutoff !== null && (
+              <Button
+                className="app-button-primary"
+                onPress={() => setShowResultados(true)}
+                isDisabled={
+                  state.competidores.filter(
+                    (c) => c.PuntajeFinal !== null && !c.Kiken,
+                  ).length === 0
+                }
+              >
+                Siguiente ronda
+              </Button>
+            )}
+
             <Button
               className="app-button-primary"
               onPress={() => setShowResultados(true)}
@@ -484,9 +537,12 @@ export default function KataPage() {
                     {/* Header de la Ronda (Siempre visible) */}
                     <div className="flex justify-between items-center p-4">
                       <div>
-                        <h3 className="text-lg font-bold">{ronda.nombre}</h3>
+                        <h3 className="text-lg font-bold text-white">
+                          {ronda.nombre}
+                        </h3>
                         <p className="text-sm text-gray-500">
-                          {new Date(ronda.fecha).toLocaleTimeString()} -{" "}
+                          {new Date(ronda.fecha).toLocaleTimeString()}
+                          {<br />}
                           {ronda.competidores.length} Competidores
                         </p>
                       </div>
@@ -494,8 +550,11 @@ export default function KataPage() {
                         <AccordionItem
                           key="1"
                           aria-label={`Ver detalles de ${ronda.nombre}`}
+                          classNames={{
+                            indicator: "text-sky-400 text-xl mr-3",
+                          }}
                           title={
-                            <span className="text-primary text-sm font-semibold">
+                            <span className="px-3 text-primary text-sm font-semibold">
                               Ver Detalles / Descomprimir
                             </span>
                           }
@@ -526,12 +585,12 @@ export default function KataPage() {
                                 {ronda.competidores.map((comp, idx) => (
                                   <tr
                                     key={comp.id}
-                                    className="border-b dark:border-gray-700"
+                                    className="border-b dark:border-gray-700 "
                                   >
-                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                                    <td className="px-4 py-3 font-medium text-white">
                                       {idx + 1}
                                     </td>
-                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                                    <td className="px-4 py-3 font-medium text-white">
                                       {comp.Nombre}
                                     </td>
                                     <td className="px-4 py-3">
@@ -539,7 +598,7 @@ export default function KataPage() {
                                         {comp.PuntajesJueces?.map((p, i) => (
                                           <span
                                             key={i}
-                                            className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs"
+                                            className="px-2 py-0.5 bg-gray-200 text-black rounded text-xs"
                                           >
                                             {p}
                                           </span>
@@ -566,11 +625,11 @@ export default function KataPage() {
 
         {/* Configuración */}
         <Card className="app-panel rounded-[1.75rem] mb-6">
-          <CardBody className="p-8">
+          <CardBody className="p-6">
             <h2 className="text-2xl font-bold mb-4 text-white">
               Configuración
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
               <Select
                 className="app-dark-select"
                 labelPlacement="outside-top"
@@ -652,7 +711,29 @@ export default function KataPage() {
             </div>
 
             {/* Categoría */}
-            <div className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select
+                className="app-dark-select"
+                labelPlacement="outside-top"
+                label="Formato de rondas"
+                placeholder="Selecciona el formato"
+                selectedKeys={[state.roundFormat]}
+                onSelectionChange={(keys) => {
+                  const selected = Array.from(keys)[0] as
+                    | "tokui_only"
+                    | "sentei_tokui"
+                    | "full_three_rounds";
+                  if (selected) {
+                    dispatch({ type: "SET_ROUND_FORMAT", payload: selected });
+                  }
+                }}
+              >
+                {roundFormatOptions.map((format) => (
+                  <SelectItem key={format.key} className="text-black">
+                    {format.label}
+                  </SelectItem>
+                ))}
+              </Select>
               <Input
                 readOnly
                 className="app-dark-input"
@@ -678,7 +759,9 @@ export default function KataPage() {
         <Card className="app-panel rounded-[1.75rem]">
           <CardBody className="p-8">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="app-section-title">Ronda Actual: Competidores</h2>
+              <h2 className="app-section-title">
+                Ronda Actual: {roundStructure.label}
+              </h2>
               <Button
                 className="app-button-primary"
                 onPress={() => setShowAgregarCompetidor(true)}
@@ -700,6 +783,7 @@ export default function KataPage() {
             ) : (
               <div className="space-y-3">
                 {state.competidores.map((competidor, index) => {
+                  const baseScoreKey = `${state.base.toFixed(1)}`;
                   const puntajesValidos = (competidor.PuntajesJueces || [])
                     .map((p) => parseFloat(p || "0"))
                     .filter((p) => !isNaN(p) && p > 0);
@@ -727,10 +811,10 @@ export default function KataPage() {
                   const updatePuntaje = (juezIndex: number, valor: string) => {
                     const newPuntajes = [
                       ...(competidor.PuntajesJueces ||
-                        Array(state.numJudges).fill("")),
+                        Array(state.numJudges).fill(baseScoreKey)),
                     ];
                     while (newPuntajes.length < state.numJudges)
-                      newPuntajes.push("");
+                      newPuntajes.push(baseScoreKey);
 
                     newPuntajes[juezIndex] = valor;
 
@@ -827,6 +911,11 @@ export default function KataPage() {
                                         label={`Juez ${jIndex + 1}`}
                                         size="sm"
                                         variant="bordered"
+                                        onOpenChange={(isOpen) => {
+                                          if (isOpen) {
+                                            centerSelectedJudgeScoreOption();
+                                          }
+                                        }}
                                         selectedKeys={
                                           competidor.PuntajesJueces?.[jIndex]
                                             ? [
@@ -834,7 +923,7 @@ export default function KataPage() {
                                                   jIndex
                                                 ],
                                               ]
-                                            : []
+                                            : [baseScoreKey]
                                         }
                                         onChange={(e) =>
                                           updatePuntaje(jIndex, e.target.value)
@@ -947,15 +1036,12 @@ export default function KataPage() {
           isOpen={showResultados}
           onClose={() => setShowResultados(false)}
           competidores={state.competidores}
+          previousRounds={state.previousRounds}
           numJudges={state.numJudges}
           categoria={state.categoria}
           area={state.area}
           currentRound={state.previousRounds.length + 1}
-          initialCompetitorCount={
-            state.previousRounds.length > 0
-              ? state.previousRounds[0].competidores.length
-              : state.competidores.length
-          }
+          roundFormat={state.roundFormat}
           onExportExcel={handleExportExcel}
           onExportPDF={handleExportPDF}
           onStartTieBreaker={(tiedIds) => {
@@ -967,13 +1053,14 @@ export default function KataPage() {
               handleStartTieBreaker(tiedIds);
             }
           }}
-          onNextRound={(cutoff) => {
+          onNextRound={(selectedIds) => {
+            const cutoff = selectedIds.length;
             if (
               confirm(
                 `¿Estás seguro de pasar a la siguiente ronda con los mejores ${cutoff} competidores?`,
               )
             ) {
-              handleAdvanceRound(cutoff);
+              handleAdvanceRound(selectedIds);
             }
           }}
         />

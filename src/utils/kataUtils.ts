@@ -109,62 +109,174 @@ export interface RoundStructure {
   totalRounds: number;
   nextRoundCutoff: number | null; // Null if it's the final round
   label: string;
+  key: string;
+  countsForFinal: boolean;
 }
+
+export type KataRoundFormatKey = "tokui_only" | "sentei_tokui" | "full_three_rounds";
+
+export interface KataRoundDefinition {
+  key: string;
+  label: string;
+  countsForFinal: boolean;
+}
+
+export interface KataRoundResult {
+  competitorUid: string;
+  nombre: string;
+  edad: number;
+  round1Score: number | null;
+  round2Score: number | null;
+  total: number;
+  latestRoundScore: number;
+  kiken?: boolean;
+}
+
+interface RoundSnapshotCompetitor {
+  competitorUid?: string;
+  Nombre: string;
+  Edad: number;
+  PuntajeFinal?: number | null;
+  Kiken?: boolean;
+}
+
+interface RoundSnapshot {
+  countsForFinal?: boolean;
+  competidores: RoundSnapshotCompetitor[];
+}
+
+export const getRoundDefinitions = (
+  roundFormat: KataRoundFormatKey,
+): KataRoundDefinition[] => {
+  switch (roundFormat) {
+    case "full_three_rounds":
+      return [
+        {
+          key: "shitei_sentei",
+          label: "Shitei/Sentei",
+          countsForFinal: false,
+        },
+        {
+          key: "sentei_tokui",
+          label: "Sentei/Tokui",
+          countsForFinal: true,
+        },
+        {
+          key: "tokui",
+          label: "Tokui",
+          countsForFinal: true,
+        },
+      ];
+    case "sentei_tokui":
+      return [
+        {
+          key: "sentei_tokui",
+          label: "Sentei/Tokui",
+          countsForFinal: true,
+        },
+        {
+          key: "tokui",
+          label: "Tokui",
+          countsForFinal: true,
+        },
+      ];
+    default:
+      return [
+        {
+          key: "tokui",
+          label: "Tokui",
+          countsForFinal: true,
+        },
+      ];
+  }
+};
+
+export const buildKataFinalResults = (
+  previousRounds: RoundSnapshot[],
+  currentCompetidores: RoundSnapshotCompetitor[],
+  currentRoundCountsForFinal = true,
+): KataRoundResult[] => {
+  const allRounds = [
+    ...previousRounds,
+    { competidores: currentCompetidores, countsForFinal: currentRoundCountsForFinal },
+  ];
+  const scoredRounds = allRounds
+    .filter((round) => round.countsForFinal !== false)
+    .map((round) =>
+      round.competidores.filter(
+        (c) => c.PuntajeFinal !== null && c.PuntajeFinal !== undefined && !c.Kiken && c.competitorUid,
+      ),
+    )
+    .filter((round) => round.length > 0);
+
+  if (scoredRounds.length === 0) {
+    return [];
+  }
+
+  if (scoredRounds.length === 1) {
+    return scoredRounds[0]
+      .map((competidor) => ({
+        competitorUid: competidor.competitorUid!,
+        nombre: competidor.Nombre,
+        edad: competidor.Edad,
+        round1Score: null,
+        round2Score: competidor.PuntajeFinal ?? null,
+        total: competidor.PuntajeFinal ?? 0,
+        latestRoundScore: competidor.PuntajeFinal ?? 0,
+        kiken: competidor.Kiken,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }
+
+  const lastTwoRounds = scoredRounds.slice(-2);
+  const previousRoundMap = new Map(
+    lastTwoRounds[0].map((competidor) => [competidor.competitorUid!, competidor]),
+  );
+
+  return lastTwoRounds[1]
+    .filter((competidor) => previousRoundMap.has(competidor.competitorUid!))
+    .map((competidor) => {
+      const previousRoundCompetitor = previousRoundMap.get(competidor.competitorUid!)!;
+      const round1Score = previousRoundCompetitor.PuntajeFinal ?? 0;
+      const round2Score = competidor.PuntajeFinal ?? 0;
+
+      return {
+        competitorUid: competidor.competitorUid!,
+        nombre: competidor.Nombre,
+        edad: competidor.Edad,
+        round1Score,
+        round2Score,
+        total: round1Score + round2Score,
+        latestRoundScore: round2Score,
+        kiken: competidor.Kiken,
+      };
+    })
+    .sort((a, b) => {
+      if (Math.abs(b.total - a.total) > 0.001) {
+        return b.total - a.total;
+      }
+
+      return b.latestRoundScore - a.latestRoundScore;
+    });
+};
 
 /**
  * Determines the round structure based on total competitors (WKF Rules)
  */
 export const getRoundStructure = (
-  totalCompetitors: number,
+  roundFormat: KataRoundFormatKey,
   currentRound: number, // 1-based
 ): RoundStructure => {
-  // Case 1: Less than 8 competitors -> 1 Round (Final)
-  if (totalCompetitors < 8) {
-    return {
-      totalRounds: 1,
-      nextRoundCutoff: null,
-      label: "Final",
-    };
-  }
-
-  // Case 2: 8 to 18 competitors -> 2 Rounds
-  if (totalCompetitors <= 18) {
-    if (currentRound === 1) {
-      return {
-        totalRounds: 2,
-        nextRoundCutoff: 6, // Top 6 to Final
-        label: "Eliminatoria",
-      };
-    }
-    return {
-      totalRounds: 2,
-      nextRoundCutoff: null,
-      label: "Final",
-    };
-  }
-
-  // Case 3: More than 18 competitors -> 3 Rounds
-  // Round 1 -> Round 2 -> Round 3 (Final)
-  if (currentRound === 1) {
-    const cutoff = totalCompetitors <= 30 ? 12 : 18;
-    return {
-      totalRounds: 3,
-      nextRoundCutoff: cutoff,
-      label: "Ronda 1",
-    };
-  }
-
-  if (currentRound === 2) {
-    return {
-      totalRounds: 3,
-      nextRoundCutoff: 6, // Top 6 to Final
-      label: "Ronda 2",
-    };
-  }
+  const definitions = getRoundDefinitions(roundFormat);
+  const roundDefinition =
+    definitions[Math.min(Math.max(currentRound - 1, 0), definitions.length - 1)];
+  const isLastRound = currentRound >= definitions.length;
 
   return {
-    totalRounds: 3,
-    nextRoundCutoff: null,
-    label: "Final",
+    totalRounds: definitions.length,
+    nextRoundCutoff: isLastRound ? null : 0,
+    label: roundDefinition.label,
+    key: roundDefinition.key,
+    countsForFinal: roundDefinition.countsForFinal,
   };
 };

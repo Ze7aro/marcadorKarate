@@ -6,6 +6,7 @@ export type IconSvgProps = SVGProps<SVGSVGElement> & {
 
 export interface Competidor {
   id: number;
+  competitorUid?: string;
   Nombre: string;
   Edad: number;
   Categoria?: string;

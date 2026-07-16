@@ -21,11 +21,16 @@ interface KataState {
   displayWindowOpen: boolean;
   lastSyncTimestamp: number;
   previousRounds: Round[];
+  roundFormat: KataRoundFormatKey;
 }
+
+export type KataRoundFormatKey = 'tokui_only' | 'sentei_tokui' | 'full_three_rounds';
 
 export interface Round {
   id: number;
   nombre: string;
+  key: string;
+  countsForFinal: boolean;
   competidores: Competidor[];
   fecha: string;
 }
@@ -50,6 +55,7 @@ type KataAction =
   | { type: 'SET_DISPLAY_WINDOW'; payload: boolean }
   | { type: 'SYNC_COMPLETE'; payload: number }
   | { type: 'ARCHIVE_ROUND'; payload: Round }
+  | { type: 'SET_ROUND_FORMAT'; payload: KataRoundFormatKey }
   | { type: 'RESET_ALL' };
 
 const initialState: KataState = {
@@ -69,6 +75,7 @@ const initialState: KataState = {
   displayWindowOpen: false,
   lastSyncTimestamp: 0,
   previousRounds: [],
+  roundFormat: 'tokui_only',
 };
 
 function kataReducer(state: KataState, action: KataAction): KataState {
@@ -88,6 +95,7 @@ function kataReducer(state: KataState, action: KataAction): KataState {
         submitted: false,
         previousRounds: [],
         showResults: false,
+        roundFormat: state.roundFormat,
       };
     case 'ADD_COMPETIDOR':
       return { ...state, competidores: [...state.competidores, action.payload] };
@@ -145,6 +153,8 @@ function kataReducer(state: KataState, action: KataAction): KataState {
       return { ...state, lastSyncTimestamp: action.payload };
     case 'ARCHIVE_ROUND':
       return { ...state, previousRounds: [...state.previousRounds, action.payload] };
+    case 'SET_ROUND_FORMAT':
+      return { ...state, roundFormat: action.payload, previousRounds: [] };
     case 'RESET_ALL':
       return initialState;
     default:
@@ -174,6 +184,10 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [_storedCategoria, setStoredCategoria] = useLocalStorage<string>('kataCategoria', '');
   const [_storedArea, setStoredArea] = useLocalStorage<string>('kataArea', '');
   const [_storedPreviousRounds, setStoredPreviousRounds] = useLocalStorage<Round[]>('kataPreviousRounds', []);
+  const [_storedRoundFormat, setStoredRoundFormat] = useLocalStorage<KataRoundFormatKey>(
+    'kataRoundFormat',
+    'tokui_only',
+  );
 
   const postKataMessage = useCrossPlatformChannel<KataStateSync>(
     KATA_EVENTS.SYNC_STATE,
@@ -276,6 +290,10 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     setStoredPreviousRounds(state.previousRounds);
   }, [state.previousRounds, setStoredPreviousRounds]);
+
+  useEffect(() => {
+    setStoredRoundFormat(state.roundFormat);
+  }, [state.roundFormat, setStoredRoundFormat]);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
