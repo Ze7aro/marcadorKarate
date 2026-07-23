@@ -412,18 +412,40 @@ export default function KataPage() {
     );
   };
 
-  const centerSelectedJudgeScoreOption = () => {
+  const centerSelectedJudgeScoreOption = (targetScoreKey?: string) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const selectedOption = document.querySelector(
-          '[role="option"][aria-selected="true"]',
-        ) as HTMLElement | null;
+        const listboxes = Array.from(
+          document.querySelectorAll('[role="listbox"]'),
+        ) as HTMLElement[];
+        const activeListbox = listboxes[listboxes.length - 1] ?? null;
+        const normalizedTargetScoreKey = targetScoreKey?.trim();
 
-        if (!selectedOption) {
+        if (!activeListbox) {
           return;
         }
 
-        selectedOption.scrollIntoView({
+        const selectedOption = activeListbox.querySelector(
+          '[role="option"][aria-selected="true"], [role="option"][data-selected="true"]',
+        ) as HTMLElement | null;
+
+        const fallbackOption =
+          normalizedTargetScoreKey
+            ? (Array.from(
+                activeListbox.querySelectorAll('[role="option"]'),
+              ).find(
+                (option) =>
+                  option.textContent?.trim() === normalizedTargetScoreKey,
+              ) as HTMLElement | undefined)
+            : undefined;
+
+        const optionToCenter = selectedOption ?? fallbackOption ?? null;
+
+        if (!optionToCenter) {
+          return;
+        }
+
+        optionToCenter.scrollIntoView({
           block: "center",
         });
       });
@@ -811,10 +833,10 @@ export default function KataPage() {
                   const updatePuntaje = (juezIndex: number, valor: string) => {
                     const newPuntajes = [
                       ...(competidor.PuntajesJueces ||
-                        Array(state.numJudges).fill(baseScoreKey)),
+                        Array(state.numJudges).fill("")),
                     ];
                     while (newPuntajes.length < state.numJudges)
-                      newPuntajes.push(baseScoreKey);
+                      newPuntajes.push("");
 
                     newPuntajes[juezIndex] = valor;
 
@@ -907,13 +929,18 @@ export default function KataPage() {
                                   (_, jIndex) => (
                                     <div key={jIndex} className="w-20">
                                       <Select
+                                        key={`${competidor.competitorUid ?? competidor.id}-${jIndex}-${baseScoreKey}`}
                                         labelPlacement="outside-top"
                                         label={`Juez ${jIndex + 1}`}
                                         size="sm"
                                         variant="bordered"
                                         onOpenChange={(isOpen) => {
                                           if (isOpen) {
-                                            centerSelectedJudgeScoreOption();
+                                            centerSelectedJudgeScoreOption(
+                                              competidor.PuntajesJueces?.[
+                                                jIndex
+                                              ] || baseScoreKey,
+                                            );
                                           }
                                         }}
                                         selectedKeys={
@@ -923,7 +950,7 @@ export default function KataPage() {
                                                   jIndex
                                                 ],
                                               ]
-                                            : [baseScoreKey]
+                                            : []
                                         }
                                         onChange={(e) =>
                                           updatePuntaje(jIndex, e.target.value)
