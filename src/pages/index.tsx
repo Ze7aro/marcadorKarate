@@ -50,7 +50,6 @@ export default function IndexPage() {
                 <p className="text-slate-300 mb-6 max-w-sm text-lg">
                   {t("kata:module.description")}
                 </p>
-                <span className="app-accent-badge">Evaluacion y ranking</span>
               </div>
             </CardBody>
           </Card>
@@ -73,7 +72,6 @@ export default function IndexPage() {
                 <p className="text-slate-300 mb-6 max-w-sm text-lg">
                   {t("kumite:module.description")}
                 </p>
-                <span className="app-accent-badge">Combate y cronometro</span>
               </div>
             </CardBody>
           </Card>
