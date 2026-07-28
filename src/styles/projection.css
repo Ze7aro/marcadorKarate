@@ -3,12 +3,82 @@
   height: 100vh;
   margin: 0;
   background: #0f172a;
+  overflow: hidden;
 }
 
 .projection-root {
-  min-height: 100vh;
+  height: 100vh;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
+}
+
+.projection-shell {
+  width: 100%;
+  height: 100%;
+  padding: clamp(0.75rem, 1.6vw, 1.5rem);
+}
+
+.projection-frame {
+  width: 100%;
+  height: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.projection-panel {
+  min-height: 0;
+}
+
+.projection-text-xs {
+  font-size: clamp(0.55rem, 0.75vw, 0.75rem);
+}
+
+.projection-text-sm {
+  font-size: clamp(0.68rem, 0.95vw, 0.95rem);
+}
+
+.projection-text-md {
+  font-size: clamp(0.9rem, 1.4vw, 1.3rem);
+}
+
+.projection-text-lg {
+  font-size: clamp(1.2rem, 2vw, 1.9rem);
+}
+
+.projection-text-xl {
+  font-size: clamp(1.8rem, 3vw, 3rem);
+}
+
+.projection-text-hero {
+  font-size: clamp(2.4rem, 4.8vw, 5.75rem);
+}
+
+.projection-text-score {
+  font-size: clamp(3rem, 7vw, 8rem);
+}
+
+.projection-text-timer {
+  font-size: clamp(3.6rem, 9vw, 8.5rem);
+}
+
+.projection-tight-gap {
+  gap: clamp(0.5rem, 1vw, 1.25rem);
+}
+
+.projection-tight-pad {
+  padding: clamp(0.75rem, 1.4vw, 1.5rem);
+}
+
+@media (max-height: 820px) {
+  .projection-shell {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-height: 720px) {
+  .projection-shell {
+    padding: 0.5rem;
+  }
 }
 
 .projection-scrollbar::-webkit-scrollbar {

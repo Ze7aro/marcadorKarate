@@ -5,53 +5,56 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
+const isTauriTarget = process.env.TAURI_PLATFORM != null;
+
+const webOnlyPlugins = !isTauriTarget
+  ? [
+      VitePWA({
+        registerType: "autoUpdate",
+        includeAssets: ["vite.svg", "tauri.svg"],
+        manifest: false, // Usar public/manifest.json manual
+        workbox: {
+          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: "CacheFirst",
+              options: {
+                cacheName: "google-fonts-cache",
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365, // 1 año
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              urlPattern: /\.(?:png|jpg|jpeg|svg|gif)$/,
+              handler: "CacheFirst",
+              options: {
+                cacheName: "images-cache",
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 30, // 30 días
+                },
+              },
+            },
+          ],
+          skipWaiting: true,
+          clientsClaim: true,
+        },
+        devOptions: {
+          enabled: true, // Habilitar en desarrollo para testing
+        },
+      }),
+    ]
+  : [];
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [
-    react(),
-    tsconfigPaths(),
-    VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["vite.svg", "tauri.svg"],
-      manifest: false, // Usar public/manifest.json manual
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-cache",
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 año
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif)$/,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "images-cache",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 días
-              },
-            },
-          },
-        ],
-        skipWaiting: true,
-        clientsClaim: true,
-      },
-      devOptions: {
-        enabled: true, // Habilitar en desarrollo para testing
-      },
-    }),
-  ],
+  plugins: [react(), tsconfigPaths(), ...webOnlyPlugins],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
