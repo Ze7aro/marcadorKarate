@@ -9,8 +9,15 @@ import {
   KUMITE_EVENTS,
   PenaltyType,
   WarningType,
+  TechniqueType,
 } from '@/types/events';
-import { advanceWinner } from '@/utils/bracketUtils';
+import {
+  advanceWinner,
+  calculateScoreFromTechniques,
+  createTechniqueCounts,
+  penaltiesFromAtenaiCount,
+  recalculateBracket,
+} from '@/utils/bracketUtils';
 
 interface KumiteState {
   competidores: CompetidorKumite[];
@@ -44,16 +51,28 @@ type KumiteAction =
   | { type: 'START_TIMER' }
   | { type: 'STOP_TIMER' }
   | { type: 'ADD_SCORE'; payload: { matchId: number; side: 'aka' | 'shiro'; points: number } }
+  | { type: 'REMOVE_SCORE'; payload: { matchId: number; side: 'aka' | 'shiro'; points: number } }
   | { type: 'ADD_PENALTY'; payload: { matchId: number; side: 'aka' | 'shiro'; penalty: PenaltyType } }
   | { type: 'REMOVE_PENALTY'; payload: { matchId: number; side: 'aka' | 'shiro'; index: number } }
   | { type: 'ADD_WARNING'; payload: { matchId: number; side: 'aka' | 'shiro'; warning: WarningType } }
   | { type: 'REMOVE_WARNING'; payload: { matchId: number; side: 'aka' | 'shiro'; index: number } }
+  | { type: 'SET_ATENAI_COUNT'; payload: { matchId: number; side: 'aka' | 'shiro'; count: number } }
+  | { type: 'SWAP_MATCH_COMPETITORS'; payload: { matchId: number } }
   | { type: 'SET_SHOW_BRACKET_DIALOG'; payload: boolean }
   | { type: 'SET_SHOW_RESULTS_DIALOG'; payload: boolean }
   | { type: 'SET_DISPLAY_WINDOW'; payload: boolean }
   | { type: 'SYNC_COMPLETE'; payload: number }
   | { type: 'START_ENCHO_SEN'; payload: { matchId: number; time: number } }
   | { type: 'DECLARE_WINNER'; payload: { matchId: number; winnerId: number; reason?: string } }
+  | {
+      type: 'EDIT_MATCH_RESULT';
+      payload: {
+        matchId: number;
+        scoreAka: number;
+        scoreShiro: number;
+        winnerId: number;
+      };
+    }
   | { type: 'LOAD_STATE'; payload: Partial<KumiteState> }
   | { type: 'RESET_ALL' };
 
@@ -72,6 +91,93 @@ const initialState: KumiteState = {
   displayWindowOpen: false,
   lastSyncTimestamp: 0,
 };
+
+function inferTechniqueCounts(
+  score: number,
+  counts?: Partial<Record<TechniqueType, number>>,
+) {
+  if (counts) {
+    return createTechniqueCounts(counts);
+  }
+
+  const ippon = Math.floor(score);
+  const remainder = Math.round((score - ippon) * 2) / 2;
+  const wazari = remainder >= 0.5 ? 1 : 0;
+
+  return createTechniqueCounts({ ippon, wazari });
+}
+
+function inferAtenaiCount(
+  count: number | undefined,
+  penalties: PenaltyType[] | undefined,
+) {
+  if (typeof count === 'number') {
+    return Math.max(0, Math.min(3, count));
+  }
+
+  if (!penalties) {
+    return 0;
+  }
+
+  if (penalties.includes('atenai_hansoku')) {
+    return 3;
+  }
+
+  if (penalties.includes('atenai_chui')) {
+    return 2;
+  }
+
+  if (penalties.includes('atenai')) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function normalizeMatch(match: Match): Match {
+  const techniqueCountsAka = inferTechniqueCounts(
+    match.scoreAka,
+    match.techniqueCountsAka,
+  );
+  const techniqueCountsShiro = inferTechniqueCounts(
+    match.scoreShiro,
+    match.techniqueCountsShiro,
+  );
+  const atenaiCountAka = inferAtenaiCount(match.atenaiCountAka, match.penaltiesAka);
+  const atenaiCountShiro = inferAtenaiCount(
+    match.atenaiCountShiro,
+    match.penaltiesShiro,
+  );
+
+  return {
+    ...match,
+    techniqueCountsAka,
+    techniqueCountsShiro,
+    scoreAka: calculateScoreFromTechniques(techniqueCountsAka),
+    scoreShiro: calculateScoreFromTechniques(techniqueCountsShiro),
+    atenaiCountAka,
+    atenaiCountShiro,
+    penaltiesAka: penaltiesFromAtenaiCount(atenaiCountAka).concat(
+      (match.penaltiesAka || []).filter((item) => !item.startsWith('atenai')),
+    ),
+    penaltiesShiro: penaltiesFromAtenaiCount(atenaiCountShiro).concat(
+      (match.penaltiesShiro || []).filter((item) => !item.startsWith('atenai')),
+    ),
+    warningsAka: match.warningsAka || [],
+    warningsShiro: match.warningsShiro || [],
+  };
+}
+
+function normalizeBracket(bracket: BracketState | null): BracketState | null {
+  if (!bracket) {
+    return null;
+  }
+
+  return {
+    ...bracket,
+    matches: bracket.matches.map(normalizeMatch),
+  };
+}
 
 function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
   switch (action.type) {
@@ -109,7 +215,7 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
     case 'SET_WIN_THRESHOLD':
       return { ...state, winThreshold: action.payload };
     case 'GENERATE_BRACKET':
-      return { ...state, bracket: action.payload };
+      return { ...state, bracket: normalizeBracket(action.payload) };
     case 'UPDATE_MATCH':
       if (!state.bracket) return state;
       return {
@@ -117,7 +223,7 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
         bracket: {
           ...state.bracket,
           matches: state.bracket.matches.map((m) =>
-            m.id === action.payload.id ? { ...m, ...action.payload.data } : m
+            m.id === action.payload.id ? normalizeMatch({ ...m, ...action.payload.data }) : m
           ),
         },
       };
@@ -130,7 +236,11 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
           : null
       };
     case 'LOAD_STATE':
-      return { ...state, ...action.payload };
+      return {
+        ...state,
+        ...action.payload,
+        bracket: normalizeBracket(action.payload.bracket ?? state.bracket),
+      };
     case 'UPDATE_TIMER':
       if (!state.bracket) return state;
       return {
@@ -168,12 +278,52 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
           ...state.bracket,
           matches: state.bracket.matches.map((m) =>
             m.id === action.payload.matchId
-              ? {
-                ...m,
-                [action.payload.side === 'aka' ? 'scoreAka' : 'scoreShiro']:
-                  m[action.payload.side === 'aka' ? 'scoreAka' : 'scoreShiro'] +
-                  action.payload.points,
-              }
+              ? (() => {
+                  const scoreKey =
+                    action.payload.side === 'aka'
+                      ? 'techniqueCountsAka'
+                      : 'techniqueCountsShiro';
+                  const technique: TechniqueType =
+                    action.payload.points === 0.5 ? 'wazari' : 'ippon';
+                  const updatedCounts = createTechniqueCounts({
+                    ...m[scoreKey],
+                    [technique]: (m[scoreKey]?.[technique] || 0) + 1,
+                  });
+
+                  return normalizeMatch({
+                    ...m,
+                    [scoreKey]: updatedCounts,
+                  });
+                })()
+              : m
+          ),
+        },
+      };
+    case 'REMOVE_SCORE':
+      if (!state.bracket) return state;
+      return {
+        ...state,
+        bracket: {
+          ...state.bracket,
+          matches: state.bracket.matches.map((m) =>
+            m.id === action.payload.matchId
+              ? (() => {
+                  const scoreKey =
+                    action.payload.side === 'aka'
+                      ? 'techniqueCountsAka'
+                      : 'techniqueCountsShiro';
+                  const technique: TechniqueType =
+                    action.payload.points === 0.5 ? 'wazari' : 'ippon';
+                  const updatedCounts = createTechniqueCounts({
+                    ...m[scoreKey],
+                    [technique]: Math.max(0, (m[scoreKey]?.[technique] || 0) - 1),
+                  });
+
+                  return normalizeMatch({
+                    ...m,
+                    [scoreKey]: updatedCounts,
+                  });
+                })()
               : m
           ),
         },
@@ -186,13 +336,28 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
           ...state.bracket,
           matches: state.bracket.matches.map((m) =>
             m.id === action.payload.matchId
-              ? {
-                ...m,
-                [action.payload.side === 'aka' ? 'penaltiesAka' : 'penaltiesShiro']: [
-                  ...(m[action.payload.side === 'aka' ? 'penaltiesAka' : 'penaltiesShiro'] || []),
-                  action.payload.penalty,
-                ],
-              }
+              ? (() => {
+                  const penaltiesKey =
+                    action.payload.side === 'aka' ? 'penaltiesAka' : 'penaltiesShiro';
+
+                  if (action.payload.penalty.startsWith('atenai')) {
+                    const countKey =
+                      action.payload.side === 'aka' ? 'atenaiCountAka' : 'atenaiCountShiro';
+                    const currentCount = m[countKey] || 0;
+                    return normalizeMatch({
+                      ...m,
+                      [countKey]: Math.min(3, currentCount + 1),
+                    });
+                  }
+
+                  return normalizeMatch({
+                    ...m,
+                    [penaltiesKey]: [
+                      ...(m[penaltiesKey] || []),
+                      action.payload.penalty,
+                    ],
+                  });
+                })()
               : m
           ),
         },
@@ -205,12 +370,26 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
           ...state.bracket,
           matches: state.bracket.matches.map((m) =>
             m.id === action.payload.matchId
-              ? {
-                ...m,
-                [action.payload.side === 'aka' ? 'penaltiesAka' : 'penaltiesShiro']: (m[
-                  action.payload.side === 'aka' ? 'penaltiesAka' : 'penaltiesShiro'
-                ] || []).filter((_, i) => i !== action.payload.index),
-              }
+              ? (() => {
+                  const penaltiesKey =
+                    action.payload.side === 'aka' ? 'penaltiesAka' : 'penaltiesShiro';
+                  const countKey =
+                    action.payload.side === 'aka' ? 'atenaiCountAka' : 'atenaiCountShiro';
+                  const penalties = m[penaltiesKey] || [];
+                  const penaltyToRemove = penalties[action.payload.index];
+
+                  if (penaltyToRemove?.startsWith('atenai')) {
+                    return normalizeMatch({
+                      ...m,
+                      [countKey]: Math.max(0, (m[countKey] || 0) - 1),
+                    });
+                  }
+
+                  return normalizeMatch({
+                    ...m,
+                    [penaltiesKey]: penalties.filter((_, i) => i !== action.payload.index),
+                  });
+                })()
               : m
           ),
         },
@@ -248,6 +427,40 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
                   action.payload.side === 'aka' ? 'warningsAka' : 'warningsShiro'
                 ] || []).filter((_, i) => i !== action.payload.index),
               }
+              : m
+          ),
+        },
+      };
+    case 'SET_ATENAI_COUNT':
+      if (!state.bracket) return state;
+      return {
+        ...state,
+        bracket: {
+          ...state.bracket,
+          matches: state.bracket.matches.map((m) =>
+            m.id === action.payload.matchId
+              ? normalizeMatch({
+                  ...m,
+                  [action.payload.side === 'aka' ? 'atenaiCountAka' : 'atenaiCountShiro']:
+                    Math.max(0, Math.min(3, action.payload.count)),
+                })
+              : m
+          ),
+        },
+      };
+    case 'SWAP_MATCH_COMPETITORS':
+      if (!state.bracket) return state;
+      return {
+        ...state,
+        bracket: {
+          ...state.bracket,
+          matches: state.bracket.matches.map((m) =>
+            m.id === action.payload.matchId
+              ? normalizeMatch({
+                  ...m,
+                  competidorAka: m.competidorShiro,
+                  competidorShiro: m.competidorAka,
+                })
               : m
           ),
         },
@@ -290,7 +503,11 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
         ...state.bracket,
         matches: state.bracket.matches.map((m) =>
           m.id === action.payload.matchId
-            ? { ...m, status: 'completed' as const, winnerId: action.payload.winnerId }
+            ? normalizeMatch({
+                ...m,
+                status: 'completed' as const,
+                winnerId: action.payload.winnerId,
+              })
             : m
         ),
       };
@@ -298,6 +515,36 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
       return {
         ...state,
         bracket: finalBracket,
+        isTimerRunning: false,
+      };
+    case 'EDIT_MATCH_RESULT':
+      if (!state.bracket) return state;
+      return {
+        ...state,
+        bracket: recalculateBracket({
+          ...state.bracket,
+          matches: state.bracket.matches.map((m) =>
+            m.id === action.payload.matchId
+              ? {
+                  ...m,
+                  status: 'completed' as const,
+                  winnerId: action.payload.winnerId,
+                  scoreAka: action.payload.scoreAka,
+                  scoreShiro: action.payload.scoreShiro,
+                  techniqueCountsAka: inferTechniqueCounts(action.payload.scoreAka),
+                  techniqueCountsShiro: inferTechniqueCounts(action.payload.scoreShiro),
+                  timeRemaining: m.duration,
+                  penaltiesAka: [],
+                  penaltiesShiro: [],
+                  atenaiCountAka: 0,
+                  atenaiCountShiro: 0,
+                  warningsAka: [],
+                  warningsShiro: [],
+                  isEnchoSen: false,
+                }
+              : m
+          ),
+        }),
         isTimerRunning: false,
       };
     default:
@@ -334,7 +581,7 @@ export const KumiteProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       type: 'LOAD_STATE',
       payload: {
         competidores: storedCompetidores,
-        bracket: storedBracket,
+        bracket: normalizeBracket(storedBracket),
         matchDuration: storedDuration,
         categoria: storedCategoria,
         area: storedArea,
@@ -382,12 +629,16 @@ export const KumiteProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         competidorShiro: currentMatch?.competidorShiro?.Nombre || '',
         scoreAka: currentMatch?.scoreAka || 0,
         scoreShiro: currentMatch?.scoreShiro || 0,
+        techniqueCountsAka: currentMatch?.techniqueCountsAka || createTechniqueCounts(),
+        techniqueCountsShiro: currentMatch?.techniqueCountsShiro || createTechniqueCounts(),
         timeRemaining: currentMatch?.timeRemaining || 0,
         isRunning: state.isTimerRunning,
         categoria: state.categoria,
         area: state.area,
         penaltiesAka: currentMatch?.penaltiesAka || [],
         penaltiesShiro: currentMatch?.penaltiesShiro || [],
+        atenaiCountAka: currentMatch?.atenaiCountAka || 0,
+        atenaiCountShiro: currentMatch?.atenaiCountShiro || 0,
         warningsAka: currentMatch?.warningsAka || [],
         warningsShiro: currentMatch?.warningsShiro || [],
         status: currentMatch?.status || 'pending',

@@ -6,6 +6,17 @@
     "start": "組手を開始",
     "comingSoon": "近日公開"
   },
+  "config": {
+    "matchDuration": "試合時間",
+    "seconds": "秒"
+  },
+  "actions": {
+    "enchoSen": "延長戦（ゴールデンポイント）",
+    "startEnchoSen": "延長戦を開始"
+  },
+  "messages": {
+    "enchoSenPrompt": "試合は引き分けで終了しました。延長戦（ゴールデンポイント）の時間を設定してください。最初の1点で勝者が決まります。"
+  },
   "placeholder": {
     "message": "組手モジュールは近日公開予定です",
     "description": "このモジュールでは、タイマー、トーナメントブラケット、完全な採点システムで組手を管理できます"

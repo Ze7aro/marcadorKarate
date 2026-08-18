@@ -3,7 +3,46 @@ import {
   Match,
   BracketState,
   MatchStatus,
+  PenaltyType,
+  TechniqueType,
 } from "@/types/events";
+
+const DEFAULT_TECHNIQUE_COUNTS: Record<TechniqueType, number> = {
+  wazari: 0,
+  ippon: 0,
+};
+
+export function createTechniqueCounts(
+  overrides?: Partial<Record<TechniqueType, number>>,
+): Record<TechniqueType, number> {
+  return {
+    ...DEFAULT_TECHNIQUE_COUNTS,
+    ...overrides,
+  };
+}
+
+export function calculateScoreFromTechniques(
+  counts?: Partial<Record<TechniqueType, number>>,
+): number {
+  const normalized = createTechniqueCounts(counts);
+  return normalized.wazari * 0.5 + normalized.ippon;
+}
+
+export function penaltiesFromAtenaiCount(count: number): PenaltyType[] {
+  if (count >= 3) {
+    return ["atenai", "atenai_chui", "atenai_hansoku"];
+  }
+
+  if (count === 2) {
+    return ["atenai", "atenai_chui"];
+  }
+
+  if (count === 1) {
+    return ["atenai"];
+  }
+
+  return [];
+}
 
 /**
  * Genera un bracket de eliminación simple
@@ -57,8 +96,12 @@ export function generateBracket(
       status: "pending" as MatchStatus,
       scoreAka: 0,
       scoreShiro: 0,
+      techniqueCountsAka: createTechniqueCounts(),
+      techniqueCountsShiro: createTechniqueCounts(),
       penaltiesAka: [],
       penaltiesShiro: [],
+      atenaiCountAka: 0,
+      atenaiCountShiro: 0,
       warningsAka: [],
       warningsShiro: [],
       timeRemaining: matchDuration,
@@ -79,8 +122,12 @@ export function generateBracket(
         status: "pending" as MatchStatus,
         scoreAka: 0,
         scoreShiro: 0,
+        techniqueCountsAka: createTechniqueCounts(),
+        techniqueCountsShiro: createTechniqueCounts(),
         penaltiesAka: [],
         penaltiesShiro: [],
+        atenaiCountAka: 0,
+        atenaiCountShiro: 0,
         warningsAka: [],
         warningsShiro: [],
         timeRemaining: matchDuration,
@@ -148,6 +195,102 @@ export function advanceWinner(
     ...bracket,
     matches: updatedMatches,
   };
+}
+
+function resetMatchProgress(match: Match): Match {
+  return {
+    ...match,
+    status: "pending",
+    winnerId: undefined,
+    result: undefined,
+    finishReason: undefined,
+    scoreAka: 0,
+    scoreShiro: 0,
+    techniqueCountsAka: createTechniqueCounts(),
+    techniqueCountsShiro: createTechniqueCounts(),
+    penaltiesAka: [],
+    penaltiesShiro: [],
+    atenaiCountAka: 0,
+    atenaiCountShiro: 0,
+    warningsAka: [],
+    warningsShiro: [],
+    timeRemaining: match.duration,
+    isEnchoSen: false,
+  };
+}
+
+function getWinnerFromMatch(match: Match): CompetidorKumite | null {
+  if (!match.winnerId) return null;
+
+  if (match.competidorAka?.id === match.winnerId) {
+    return match.competidorAka;
+  }
+
+  if (match.competidorShiro?.id === match.winnerId) {
+    return match.competidorShiro;
+  }
+
+  return null;
+}
+
+export function recalculateBracket(bracket: BracketState): BracketState {
+  const seededMatches = bracket.matches.map((match) =>
+    match.round === 1
+      ? match
+      : resetMatchProgress({
+          ...match,
+          competidorAka: null,
+          competidorShiro: null,
+        }),
+  );
+
+  const seededBracket: BracketState = {
+    ...bracket,
+    matches: seededMatches,
+  };
+
+  const originalMatches = new Map(bracket.matches.map((match) => [match.id, match]));
+  const sortedMatches = [...seededBracket.matches].sort((a, b) => {
+    if (a.round !== b.round) return a.round - b.round;
+    return a.position - b.position;
+  });
+
+  let recalculatedBracket = seededBracket;
+
+  sortedMatches.forEach((seededMatch) => {
+    const currentMatch =
+      recalculatedBracket.matches.find((match) => match.id === seededMatch.id) || seededMatch;
+    const originalMatch = originalMatches.get(seededMatch.id);
+
+    if (!originalMatch) return;
+
+    const sameCompetitors =
+      currentMatch.competidorAka?.id === originalMatch.competidorAka?.id &&
+      currentMatch.competidorShiro?.id === originalMatch.competidorShiro?.id;
+
+    if (!sameCompetitors) {
+      return;
+    }
+
+    const winner = getWinnerFromMatch(originalMatch);
+
+    recalculatedBracket = {
+      ...recalculatedBracket,
+      matches: recalculatedBracket.matches.map((match) =>
+        match.id === originalMatch.id ? { ...originalMatch } : match,
+      ),
+    };
+
+    if (winner) {
+      recalculatedBracket = advanceWinner(
+        recalculatedBracket,
+        originalMatch.id,
+        winner.id,
+      );
+    }
+  });
+
+  return recalculatedBracket;
 }
 
 /**

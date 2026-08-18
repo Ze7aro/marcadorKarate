@@ -24,8 +24,8 @@ export default function IndexPage() {
         </div>
 
         <div className="text-center mb-14">
-          <p className="app-label mb-4">Marcador Kenshukan</p>
-          <h1 className="app-title mb-4">{t("common:app.title")}</h1>
+          <h2 className="app-label mb-4">Marcador Kenshukan</h2>
+          {/*       <h1 className="app-title mb-4">{t("common:app.title")}</h1> */}
           <p className="mx-auto max-w-3xl text-xl text-slate-300">
             {t("common:app.subtitle")}
           </p>

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -9,6 +9,7 @@ import {
   Card,
   CardBody,
   Chip,
+  Input,
 } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { BracketState, Match } from "@/types/events";
@@ -19,6 +20,12 @@ interface BracketViewProps {
   onClose: () => void;
   bracket: BracketState;
   onSelectMatch: (matchId: number) => void;
+  onEditMatchResult: (
+    matchId: number,
+    scoreAka: number,
+    scoreShiro: number,
+    winnerId: number,
+  ) => void;
 }
 
 export default function BracketView({
@@ -26,8 +33,13 @@ export default function BracketView({
   onClose,
   bracket,
   onSelectMatch,
+  onEditMatchResult,
 }: BracketViewProps) {
   const { t } = useTranslation(["kumite", "common"]);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+  const [scoreAka, setScoreAka] = useState("0");
+  const [scoreShiro, setScoreShiro] = useState("0");
+  const [winnerSide, setWinnerSide] = useState<"aka" | "shiro">("aka");
 
   const matchesByRound = useMemo(() => {
     const rounds: Map<number, Match[]> = new Map();
@@ -62,6 +74,62 @@ export default function BracketView({
     if (match.competidorShiro?.id === match.winnerId)
       return match.competidorShiro.Nombre;
     return null;
+  };
+
+  useEffect(() => {
+    if (!editingMatch) return;
+
+    setScoreAka(editingMatch.scoreAka.toString());
+    setScoreShiro(editingMatch.scoreShiro.toString());
+    setWinnerSide(
+      editingMatch.winnerId === editingMatch.competidorShiro?.id ? "shiro" : "aka",
+    );
+  }, [editingMatch]);
+
+  const handleOpenEditor = (match: Match) => {
+    if (!match.competidorAka || !match.competidorShiro) {
+      return;
+    }
+
+    setEditingMatch(match);
+  };
+
+  const handleCloseEditor = () => {
+    setEditingMatch(null);
+    setScoreAka("0");
+    setScoreShiro("0");
+    setWinnerSide("aka");
+  };
+
+  const handleSaveResult = () => {
+    if (!editingMatch || !editingMatch.competidorAka || !editingMatch.competidorShiro) {
+      return;
+    }
+
+    const parsedScoreAka = Number.parseFloat(scoreAka);
+    const parsedScoreShiro = Number.parseFloat(scoreShiro);
+
+    if (
+      Number.isNaN(parsedScoreAka) ||
+      Number.isNaN(parsedScoreShiro) ||
+      parsedScoreAka < 0 ||
+      parsedScoreShiro < 0
+    ) {
+      return;
+    }
+
+    const winnerId =
+      winnerSide === "aka"
+        ? editingMatch.competidorAka.id
+        : editingMatch.competidorShiro.id;
+
+    onEditMatchResult(
+      editingMatch.id,
+      parsedScoreAka,
+      parsedScoreShiro,
+      winnerId,
+    );
+    handleCloseEditor();
   };
 
   return (
@@ -205,6 +273,16 @@ export default function BracketView({
                                     </p>
                                   </div>
                                 )}
+
+                                {match.competidorAka && match.competidorShiro && (
+                                  <Button
+                                    size="sm"
+                                    className="app-button-secondary w-full"
+                                    onPress={() => handleOpenEditor(match)}
+                                  >
+                                    {t("common:buttons.edit")}
+                                  </Button>
+                                )}
                               </div>
                             </CardBody>
                           </Card>
@@ -222,6 +300,87 @@ export default function BracketView({
           </Button>
         </ModalFooter>
       </ModalContent>
+
+      <Modal
+        isOpen={!!editingMatch}
+        onClose={handleCloseEditor}
+        backdrop="blur"
+        classNames={{ backdrop: "bg-slate-950/70" }}
+      >
+        <ModalContent className="app-panel rounded-[1.75rem] border border-[rgba(80,125,196,0.16)] text-slate-100">
+          <ModalHeader className="border-b border-[rgba(80,125,196,0.16)]">
+            <div>
+              <h3 className="text-xl font-bold text-white">
+                {t("common:buttons.edit")} match
+              </h3>
+              <p className="text-sm text-slate-400">
+                {editingMatch?.competidorAka?.Nombre} vs{" "}
+                {editingMatch?.competidorShiro?.Nombre}
+              </p>
+            </div>
+          </ModalHeader>
+          <ModalBody className="space-y-4 py-5">
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                className="app-dark-input"
+                label="Aka"
+                labelPlacement="outside-top"
+                type="number"
+                min="0"
+                step="0.5"
+                value={scoreAka}
+                onValueChange={setScoreAka}
+              />
+              <Input
+                className="app-dark-input"
+                label="Shiro"
+                labelPlacement="outside-top"
+                type="number"
+                min="0"
+                step="0.5"
+                value={scoreShiro}
+                onValueChange={setScoreShiro}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-slate-300">
+                {t("kumite:actions.declareWinner", { defaultValue: "Ganador" })}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  className={
+                    winnerSide === "aka"
+                      ? "app-button-primary"
+                      : "app-button-secondary"
+                  }
+                  onPress={() => setWinnerSide("aka")}
+                >
+                  {editingMatch?.competidorAka?.Nombre || "Aka"}
+                </Button>
+                <Button
+                  className={
+                    winnerSide === "shiro"
+                      ? "app-button-primary"
+                      : "app-button-secondary"
+                  }
+                  onPress={() => setWinnerSide("shiro")}
+                >
+                  {editingMatch?.competidorShiro?.Nombre || "Shiro"}
+                </Button>
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter className="border-t border-[rgba(80,125,196,0.16)]">
+            <Button className="app-button-secondary" onPress={handleCloseEditor}>
+              {t("common:buttons.cancel")}
+            </Button>
+            <Button className="app-button-primary" onPress={handleSaveResult}>
+              {t("common:buttons.save")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Modal>
   );
 }

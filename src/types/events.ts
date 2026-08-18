@@ -74,6 +74,7 @@ export type WarningType =
   | "kinshi_ni"
   | "kinshi_chui"
   | "kinshi_hansoku";
+export type TechniqueType = "wazari" | "ippon";
 export type FinishReason =
   | "points"
   | "time"
@@ -102,8 +103,12 @@ export interface Match {
   finishReason?: FinishReason;
   scoreAka: number; // Puntaje competidor Aka
   scoreShiro: number; // Puntaje competidor Shiro
+  techniqueCountsAka: Record<TechniqueType, number>;
+  techniqueCountsShiro: Record<TechniqueType, number>;
   penaltiesAka: PenaltyType[]; // Penalizaciones Aka
   penaltiesShiro: PenaltyType[]; // Penalizaciones Shiro
+  atenaiCountAka: number;
+  atenaiCountShiro: number;
   warningsAka: WarningType[]; // Avisos Aka
   warningsShiro: WarningType[]; // Avisos Shiro
   timeRemaining: number; // Tiempo restante en segundos
@@ -126,12 +131,16 @@ export interface KumiteStateSync {
   competidorShiro: string;
   scoreAka: number;
   scoreShiro: number;
+  techniqueCountsAka: Record<TechniqueType, number>;
+  techniqueCountsShiro: Record<TechniqueType, number>;
   timeRemaining: number;
   isRunning: boolean;
   categoria: string;
   area: string;
   penaltiesAka: PenaltyType[];
   penaltiesShiro: PenaltyType[];
+  atenaiCountAka: number;
+  atenaiCountShiro: number;
   warningsAka: WarningType[];
   warningsShiro: WarningType[];
   status: MatchStatus;

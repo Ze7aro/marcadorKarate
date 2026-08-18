@@ -113,7 +113,12 @@ export interface RoundStructure {
   countsForFinal: boolean;
 }
 
-export type KataRoundFormatKey = "tokui_only" | "sentei_tokui" | "full_three_rounds";
+export type KataRoundFormatKey =
+  | "tokui_only"
+  | "shitei_only"
+  | "sentei_plus_tokui"
+  | "sentei_tokui"
+  | "full_three_rounds";
 
 export interface KataRoundDefinition {
   key: string;
@@ -149,6 +154,27 @@ export const getRoundDefinitions = (
   roundFormat: KataRoundFormatKey,
 ): KataRoundDefinition[] => {
   switch (roundFormat) {
+    case "shitei_only":
+      return [
+        {
+          key: "shitei",
+          label: "Shitei",
+          countsForFinal: true,
+        },
+      ];
+    case "sentei_plus_tokui":
+      return [
+        {
+          key: "sentei",
+          label: "Sentei",
+          countsForFinal: true,
+        },
+        {
+          key: "tokui",
+          label: "Tokui",
+          countsForFinal: true,
+        },
+      ];
     case "full_three_rounds":
       return [
         {

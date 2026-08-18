@@ -6,6 +6,17 @@
     "start": "Start Kumite",
     "comingSoon": "Coming Soon"
   },
+  "config": {
+    "matchDuration": "Match Duration",
+    "seconds": "seconds"
+  },
+  "actions": {
+    "enchoSen": "Encho-sen (Golden Point)",
+    "startEnchoSen": "Start Encho-sen"
+  },
+  "messages": {
+    "enchoSenPrompt": "The match ended in a tie. Set the time for Encho-sen (Golden Point). The first point will win the match."
+  },
   "placeholder": {
     "message": "The Kumite module will be available soon",
     "description": "This module will allow managing combats with timer, elimination brackets and complete scoring system"

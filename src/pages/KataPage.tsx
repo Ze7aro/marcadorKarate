@@ -63,6 +63,8 @@ export default function KataPage() {
   );
   const roundFormatOptions = [
     { key: "tokui_only", label: "Tokui" },
+    { key: "shitei_only", label: "Shitei (solamente)" },
+    { key: "sentei_plus_tokui", label: "Sentei + Tokui" },
     { key: "sentei_tokui", label: "Sentei/Tokui + Tokui" },
     { key: "full_three_rounds", label: "Shitei/Sentei + Sentei/Tokui + Tokui" },
   ];
@@ -429,15 +431,12 @@ export default function KataPage() {
           '[role="option"][aria-selected="true"], [role="option"][data-selected="true"]',
         ) as HTMLElement | null;
 
-        const fallbackOption =
-          normalizedTargetScoreKey
-            ? (Array.from(
-                activeListbox.querySelectorAll('[role="option"]'),
-              ).find(
-                (option) =>
-                  option.textContent?.trim() === normalizedTargetScoreKey,
-              ) as HTMLElement | undefined)
-            : undefined;
+        const fallbackOption = normalizedTargetScoreKey
+          ? (Array.from(activeListbox.querySelectorAll('[role="option"]')).find(
+              (option) =>
+                option.textContent?.trim() === normalizedTargetScoreKey,
+            ) as HTMLElement | undefined)
+          : undefined;
 
         const optionToCenter = selectedOption ?? fallbackOption ?? null;
 
@@ -457,9 +456,11 @@ export default function KataPage() {
       <div className="app-container">
         {/* Header */}
         <div className="app-header">
-          <div>
-            <h1 className="app-title mb-2">Módulo Kata</h1>
-            <p className="app-subtitle">Gestión de evaluaciones de formas</p>
+          <div className="flex gap-2">
+            <h1 className="app-title mb-2">Kata</h1>
+            <p className="app-subtitle self-end">
+              Gestor de evaluaciones de formas
+            </p>
           </div>
 
           <div className="app-toolbar">
@@ -743,6 +744,8 @@ export default function KataPage() {
                 onSelectionChange={(keys) => {
                   const selected = Array.from(keys)[0] as
                     | "tokui_only"
+                    | "shitei_only"
+                    | "sentei_plus_tokui"
                     | "sentei_tokui"
                     | "full_three_rounds";
                   if (selected) {

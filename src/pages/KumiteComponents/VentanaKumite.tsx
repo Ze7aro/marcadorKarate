@@ -1,12 +1,44 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCrossPlatformChannel } from '@/hooks/useCrossPlatformChannel';
-import { KumiteStateSync, KUMITE_EVENTS, PenaltyType, WarningType } from '@/types/events';
+import {
+  KumiteStateSync,
+  KUMITE_EVENTS,
+  PenaltyType,
+  TechniqueType,
+  WarningType,
+} from '@/types/events';
 import { Card, CardBody, Chip } from '@heroui/react';
 import WinnerModal from './WinnerModal';
 import '@/styles/projection.css';
 
 type BadgeTone = 'warning' | 'danger';
+
+function MarkerDots({
+  count,
+  total = 3,
+  activeClass,
+  inactiveClass,
+}: {
+  count: number;
+  total?: number;
+  activeClass: string;
+  inactiveClass: string;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-2">
+      {Array.from({ length: total }).map((_, index) => {
+        const active = index < count;
+        return (
+          <span
+            key={index}
+            className={`h-5 w-5 rounded-full border-2 ${active ? activeClass : inactiveClass}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 function groupItems<T>(items: T[], size: number): T[][] {
   const grouped: T[][] = [];
@@ -100,6 +132,8 @@ function CompetitorPanel({
   name,
   score,
   penalties,
+  techniqueCounts,
+  atenaiCount,
   warnings,
   penaltyTitle,
   warningTitle,
@@ -113,6 +147,8 @@ function CompetitorPanel({
   name: string;
   score: number;
   penalties: PenaltyType[];
+  techniqueCounts: Record<TechniqueType, number>;
+  atenaiCount: number;
   warnings: WarningType[];
   penaltyTitle: string;
   warningTitle: string;
@@ -120,7 +156,7 @@ function CompetitorPanel({
 }) {
   return (
     <Card className={`projection-panel h-full border-4 ${accentClass}`}>
-      <CardBody className={`grid h-full min-h-0 grid-rows-[auto_auto_1fr] ${bodyClass}`}>
+      <CardBody className={`grid h-full min-h-0 grid-rows-[auto_auto_auto_1fr] ${bodyClass}`}>
         <div className="text-center">
           <span
             className={`inline-flex rounded-full px-4 py-1.5 projection-text-sm font-black tracking-[0.18em] ${chipClass}`}
@@ -143,6 +179,37 @@ function CompetitorPanel({
             }`}
           >
             {score}
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          <div>
+            <p
+              className={`mb-2 text-center projection-text-xs font-black uppercase tracking-[0.22em] ${
+                isLight ? 'text-gray-700/80' : 'text-white/70'
+              }`}
+            >
+              Wazari
+            </p>
+            <MarkerDots
+              count={techniqueCounts.wazari || 0}
+              activeClass={isLight ? 'border-gray-700 bg-transparent' : 'border-white bg-transparent'}
+              inactiveClass={isLight ? 'border-gray-400/35 bg-white/35' : 'border-white/25 bg-white/10'}
+            />
+          </div>
+          <div>
+            <p
+              className={`mb-2 text-center projection-text-xs font-black uppercase tracking-[0.22em] ${
+                isLight ? 'text-amber-800/80' : 'text-amber-200/80'
+              }`}
+            >
+              Atenai
+            </p>
+            <MarkerDots
+              count={atenaiCount}
+              activeClass={isLight ? 'border-amber-700 bg-transparent' : 'border-amber-200 bg-transparent'}
+              inactiveClass={isLight ? 'border-amber-700/20 bg-amber-100/40' : 'border-amber-200/25 bg-amber-100/10'}
+            />
           </div>
         </div>
 
@@ -215,6 +282,10 @@ export default function VentanaKumite() {
     if (kumiteData.status === 'completed') return t('kumite:bracket.completed').toUpperCase();
     return t('kumite:bracket.inProgress').toUpperCase();
   }, [kumiteData, t]);
+  const isAtoshiBaraku =
+    !!kumiteData &&
+    kumiteData.timeRemaining > 0 &&
+    kumiteData.timeRemaining <= 15;
 
   if (!kumiteData || !kumiteData.currentMatch) {
     return (
@@ -281,8 +352,8 @@ export default function VentanaKumite() {
                 <div className="text-center">
                   <div
                     className={`projection-text-timer font-black leading-none tracking-[0.08em] ${
-                      kumiteData.timeRemaining <= 10 && kumiteData.timeRemaining > 0
-                        ? 'text-red-500 animate-pulse'
+                      isAtoshiBaraku
+                        ? 'animate-pulse text-amber-300'
                         : kumiteData.timeRemaining === 0
                           ? 'text-red-600'
                           : 'text-white'
@@ -290,26 +361,17 @@ export default function VentanaKumite() {
                   >
                     {formatTime(kumiteData.timeRemaining)}
                   </div>
+                  {isAtoshiBaraku ? (
+                    <div className="mt-3 projection-text-sm font-black uppercase tracking-[0.24em] text-amber-300">
+                      Atoshi Baraku
+                    </div>
+                  ) : null}
                 </div>
               </CardBody>
             </Card>
           </section>
 
           <section className="projection-panel grid min-h-0 grid-cols-2 gap-3">
-            <CompetitorPanel
-              accentClass="border-red-400 bg-gradient-to-br from-red-700/85 to-red-950/85"
-              bodyClass="px-4 py-4"
-              chipClass="bg-red-950/50 text-red-100"
-              isLight={false}
-              label={t('kumite:competitor.aka').toUpperCase()}
-              name={kumiteData.competidorAka}
-              score={kumiteData.scoreAka}
-              penalties={kumiteData.penaltiesAka || []}
-              warnings={kumiteData.warningsAka || []}
-              penaltyTitle={t('kumite:penalties.title')}
-              warningTitle={t('kumite:warnings.title')}
-              t={t}
-            />
             <CompetitorPanel
               accentClass="border-gray-300 bg-gradient-to-br from-gray-100 to-gray-400 text-gray-900"
               bodyClass="px-4 py-4"
@@ -319,7 +381,25 @@ export default function VentanaKumite() {
               name={kumiteData.competidorShiro}
               score={kumiteData.scoreShiro}
               penalties={kumiteData.penaltiesShiro || []}
+              techniqueCounts={kumiteData.techniqueCountsShiro}
+              atenaiCount={kumiteData.atenaiCountShiro || 0}
               warnings={kumiteData.warningsShiro || []}
+              penaltyTitle={t('kumite:penalties.title')}
+              warningTitle={t('kumite:warnings.title')}
+              t={t}
+            />
+            <CompetitorPanel
+              accentClass="border-red-400 bg-gradient-to-br from-red-700/85 to-red-950/85"
+              bodyClass="px-4 py-4"
+              chipClass="bg-red-950/50 text-red-100"
+              isLight={false}
+              label={t('kumite:competitor.aka').toUpperCase()}
+              name={kumiteData.competidorAka}
+              score={kumiteData.scoreAka}
+              penalties={kumiteData.penaltiesAka || []}
+              techniqueCounts={kumiteData.techniqueCountsAka}
+              atenaiCount={kumiteData.atenaiCountAka || 0}
+              warnings={kumiteData.warningsAka || []}
               penaltyTitle={t('kumite:penalties.title')}
               warningTitle={t('kumite:warnings.title')}
               t={t}

@@ -2,7 +2,7 @@
   "module": {
     "title": "Kumite",
     "subtitle": "Módulo Kumite",
-    "description": "Gestión de combates con temporizador y sistema de puntuación",
+    "description": "Gestor de combates",
     "start": "Iniciar Kumite"
   },
   "config": {
@@ -116,7 +116,8 @@
     "matchSelected": "Match seleccionado",
     "penaltyAlreadyExists": "Esta infracción ya ha sido aplicada al competidor",
     "warningAlreadyExists": "Este aviso ya ha sido aplicado al competidor",
-    "enchoSenPrompt": "El match terminó en empate. Configure el tiempo para el Encho-sen (Punto de Oro). El primer punto ganará el match."
+    "enchoSenPrompt": "El match terminó en empate. Configure el tiempo para el Encho-sen (Punto de Oro). El primer punto ganará el match.",
+    "atoshiBaraku": "Atoshi baraku: restan 15 segundos"
   },
   "confirmations": {
     "reset": "¿Estás seguro de reiniciar todo? Se perderán todos los datos.",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Button,
   Card,
@@ -31,6 +31,160 @@ import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCategoryCatalog } from "@/hooks/useCategoryCatalog";
 
+function playBell() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const AudioContextClass =
+    window.AudioContext ||
+    (
+      window as typeof window & {
+        webkitAudioContext?: typeof AudioContext;
+      }
+    ).webkitAudioContext;
+
+  if (!AudioContextClass) {
+    return;
+  }
+
+  const audioContext = new AudioContextClass();
+  const now = audioContext.currentTime;
+
+  [0, 0.22].forEach((offset) => {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(1320, now + offset);
+    gainNode.gain.setValueAtTime(0.0001, now + offset);
+    gainNode.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.28);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start(now + offset);
+    oscillator.stop(now + offset + 0.3);
+  });
+
+  window.setTimeout(() => {
+    void audioContext.close().catch(() => undefined);
+  }, 700);
+}
+
+function ScoreControl({
+  label,
+  points,
+  onAdd,
+  onRemove,
+  disabled,
+  currentMatch,
+  side,
+  markerType,
+}: {
+  label: string;
+  points: number;
+  onAdd: () => void;
+  onRemove: () => void;
+  disabled: boolean;
+  currentMatch: any;
+  side: "aka" | "shiro";
+  markerType?: "wazari" | "ippon" | "atenai";
+}) {
+  const isShiro = side === "shiro";
+  const wazariCount = isShiro
+    ? currentMatch.techniqueCountsShiro?.wazari || 0
+    : currentMatch.techniqueCountsAka?.wazari || 0;
+  const ipponCount = isShiro
+    ? currentMatch.techniqueCountsShiro?.ippon || 0
+    : currentMatch.techniqueCountsAka?.ippon || 0;
+  const atenaiCount = isShiro
+    ? currentMatch.atenaiCountShiro || 0
+    : currentMatch.atenaiCountAka || 0;
+  const markerCount =
+    markerType === "atenai"
+      ? atenaiCount
+      : markerType === "wazari"
+        ? wazariCount
+        : markerType === "ippon"
+          ? ipponCount
+          : 0;
+  const markerTotal =
+    markerType === "wazari" ? 5 : markerType === "ippon" ? 3 : 3;
+
+  return (
+    <div className="rounded-2xl border border-[rgba(80,125,196,0.18)] bg-[rgba(8,17,32,0.55)] p-1">
+      {markerType ? (
+        <MarkerDots
+          count={markerCount}
+          total={markerTotal}
+          filledClass={
+            isShiro
+              ? markerType === "atenai"
+                ? "border-amber-600 bg-transparent"
+                : "border-slate-600 bg-transparent"
+              : markerType === "atenai"
+                ? "border-amber-200 bg-transparent"
+                : "border-rose-100 bg-transparent"
+          }
+          emptyClass={
+            isShiro
+              ? markerType === "atenai"
+                ? "border-amber-700/25 bg-amber-100/40"
+                : "border-slate-400/40 bg-white/35"
+              : markerType === "atenai"
+                ? "border-amber-100/30 bg-amber-200/10"
+                : "border-rose-100/35 bg-rose-200/15"
+          }
+        />
+      ) : null}
+      <div className="mb-2 text-center text-sm font-semibold text-slate-200">
+        {label}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          size="sm"
+          variant="flat"
+          className="bg-rose-500/18 text-rose-100"
+          onPress={onRemove}
+          isDisabled={disabled}
+        >
+          -{points}
+        </Button>
+        <Button size="sm" color="primary" onPress={onAdd} isDisabled={disabled}>
+          +{points}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function MarkerDots({
+  count,
+  total = 3,
+  filledClass,
+  emptyClass,
+}: {
+  count: number;
+  total?: number;
+  filledClass: string;
+  emptyClass: string;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-2">
+      {Array.from({ length: total }).map((_, index) => {
+        const active = index < count;
+        return (
+          <span
+            key={index}
+            className={`h-4 w-4 rounded-full border-2 ${active ? filledClass : emptyClass}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export default function KumitePage() {
   const navigate = useNavigate();
   const { t } = useTranslation(["kumite", "common"]);
@@ -43,6 +197,8 @@ export default function KumitePage() {
   const [showResultsDialog, setShowResultsDialog] = useState(false);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [showEnchoSenModal, setShowEnchoSenModal] = useState(false);
+  const bellFiredRef = useRef<number | null>(null);
+  const atoshiFiredRef = useRef<number | null>(null);
   const [winnerInfo, setWinnerInfo] = useState<{
     name: string;
     scoreAka: number;
@@ -59,6 +215,12 @@ export default function KumitePage() {
 
   // Timer para el match actual
   const currentMatch = state.bracket ? getCurrentMatch(state.bracket) : null;
+  const isMatchCompleted = currentMatch?.status === "completed";
+  const isTimeExpired = !!currentMatch && currentMatch.timeRemaining === 0;
+  const isAtoshiBaraku =
+    !!currentMatch &&
+    currentMatch.timeRemaining > 0 &&
+    currentMatch.timeRemaining <= 15;
   const infractionButtonClass =
     "border border-amber-300/28 bg-amber-500/22 text-amber-50 font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
   const winnerButtonClass =
@@ -82,36 +244,71 @@ export default function KumitePage() {
       }
     },
     onComplete: () => {
+      playBell();
       toast.success(t("kumite:messages.timeUp"));
       dispatch({ type: "STOP_TIMER" });
+      return;
+      /*
 
-      if (currentMatch) {
+      const finishedMatch = currentMatch;
+
+      // istanbul ignore next
+      if (finishedMatch) {
         if (
-          currentMatch.isEnchoSen &&
-          currentMatch.scoreAka === currentMatch.scoreShiro
+          finishedMatch.isEnchoSen &&
+          finishedMatch.scoreAka === finishedMatch.scoreShiro
         ) {
           // Si termina el tiempo en Encho-sen y siguen empate -> Hantei (o decisión manual)
           // Por ahora lo dejamos completado para que decidan
           dispatch({
             type: "UPDATE_MATCH",
-            payload: { id: currentMatch.id, data: { status: "completed" } },
+            payload: { id: finishedMatch.id, data: { status: "completed" } },
           });
-        } else if (currentMatch.scoreAka === currentMatch.scoreShiro) {
+        } else if (finishedMatch.scoreAka === finishedMatch.scoreShiro) {
           // Empate Normal: Solo marcar como completado, el botón para Encho-sen aparecerá
           dispatch({
             type: "UPDATE_MATCH",
-            payload: { id: currentMatch.id, data: { status: "completed" } },
+            payload: { id: finishedMatch.id, data: { status: "completed" } },
           });
-        } else if (currentMatch.scoreAka > currentMatch.scoreShiro) {
+        } else if (finishedMatch.scoreAka > finishedMatch.scoreShiro) {
           // Ganador Aka por puntos
-          handleDeclareWinner(currentMatch.competidorAka!.id);
+          handleDeclareWinner(finishedMatch.competidorAka!.id);
         } else {
           // Ganador Shiro por puntos
-          handleDeclareWinner(currentMatch.competidorShiro!.id);
+          handleDeclareWinner(finishedMatch.competidorShiro!.id);
         }
       }
+      */
     },
   });
+  useEffect(() => {
+    if (!currentMatch) {
+      bellFiredRef.current = null;
+      atoshiFiredRef.current = null;
+      return;
+    }
+
+    if (
+      bellFiredRef.current !== currentMatch.id &&
+      currentMatch.timeRemaining === 0
+    ) {
+      bellFiredRef.current = currentMatch.id;
+    }
+
+    if (
+      atoshiFiredRef.current !== currentMatch.id &&
+      currentMatch.timeRemaining === 15
+    ) {
+      atoshiFiredRef.current = currentMatch.id;
+      toast(t("kumite:messages.atoshiBaraku"), {
+        icon: "⏱️",
+      });
+    }
+
+    if (currentMatch.timeRemaining > 15) {
+      atoshiFiredRef.current = null;
+    }
+  }, [currentMatch?.id, currentMatch?.timeRemaining, t]);
 
   const handleAddCompetidor = (nombre: string, edad: number) => {
     const nuevoCompetidor: CompetidorKumite = {
@@ -240,10 +437,31 @@ export default function KumitePage() {
     }
   };
 
+  const handleSwapSides = () => {
+    if (!currentMatch || isMatchCompleted) {
+      return;
+    }
+
+    dispatch({
+      type: "SWAP_MATCH_COMPETITORS",
+      payload: { matchId: currentMatch.id },
+    });
+    toast.success("Shiro y Aka intercambiados");
+  };
+
   const handleAddScore = (side: "aka" | "shiro", points: number) => {
     if (currentMatch) {
       dispatch({
         type: "ADD_SCORE",
+        payload: { matchId: currentMatch.id, side, points },
+      });
+    }
+  };
+
+  const handleRemoveScore = (side: "aka" | "shiro", points: number) => {
+    if (currentMatch) {
+      dispatch({
+        type: "REMOVE_SCORE",
         payload: { matchId: currentMatch.id, side, points },
       });
     }
@@ -279,6 +497,18 @@ export default function KumitePage() {
         `${t("kumite:penalties.title")}: ${t(`kumite:penalties.${penalty}`)}`,
       );
     }
+  };
+  const handleEditMatchResult = (
+    matchId: number,
+    scoreAka: number,
+    scoreShiro: number,
+    winnerId: number,
+  ) => {
+    dispatch({
+      type: "EDIT_MATCH_RESULT",
+      payload: { matchId, scoreAka, scoreShiro, winnerId },
+    });
+    toast.success("Resultado actualizado");
   };
 
   const handleAddWarning = (side: "aka" | "shiro", warning: WarningType) => {
@@ -320,6 +550,21 @@ export default function KumitePage() {
       toast.success(t("common:states.success"));
     }
   };
+
+  /*   const handleSetAtenaiCount = (side: "aka" | "shiro", nextCount: number) => {
+    if (!currentMatch) {
+      return;
+    }
+
+    dispatch({
+      type: "SET_ATENAI_COUNT",
+      payload: {
+        matchId: currentMatch.id,
+        side,
+        count: nextCount,
+      },
+    });
+  }; */
 
   const handleDeclareWinner = (
     winnerId: number,
@@ -373,6 +618,26 @@ export default function KumitePage() {
       reset(state.matchDuration);
       toast.success(t("kumite:messages.nextMatch"));
     }
+  };
+
+  const handleResolveMatch = () => {
+    if (!currentMatch) return;
+
+    if (currentMatch.scoreAka === currentMatch.scoreShiro) {
+      if (currentMatch.isEnchoSen) {
+        return;
+      }
+
+      setShowEnchoSenModal(true);
+      return;
+    }
+
+    if (currentMatch.scoreAka > currentMatch.scoreShiro) {
+      handleDeclareWinner(currentMatch.competidorAka!.id);
+      return;
+    }
+
+    handleDeclareWinner(currentMatch.competidorShiro!.id);
   };
 
   // Efecto para verificar condición de victoria automática (3 puntos)
@@ -458,13 +723,15 @@ export default function KumitePage() {
   };
 
   return (
-    <div className="app-shell">
-      <div className="app-container">
+    <div className="app-shell lg:h-screen lg:overflow-hidden">
+      <div className="app-container flex h-full min-h-0 flex-col">
         {/* Header */}
-        <div className="app-header">
-          <div>
-            <h1 className="app-title mb-2">⚔️ {t("kumite:module.title")}</h1>
-            <p className="app-subtitle">{t("kumite:module.description")}</p>
+        <div className="app-header shrink-0">
+          <div className="flex gap-2">
+            <h1 className="app-title mb-2">{t("kumite:module.title")}</h1>
+            <p className="app-subtitle self-end">
+              {t("kumite:module.description")}
+            </p>
           </div>
           <div className="app-toolbar">
             <Button
@@ -533,168 +800,183 @@ export default function KumitePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(320px,0.95fr)_minmax(0,2fr)] lg:items-stretch">
           {/* Configuración */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card className="app-panel rounded-[1.75rem]">
+          <div className="min-h-0 lg:h-full">
+            <Card className="app-panel h-full rounded-[1rem]">
               <CardHeader className="pb-0">
                 <h2 className="text-xl font-semibold text-white">
                   {t("kumite:config.title")}
                 </h2>
               </CardHeader>
               <Divider className="app-subtle-divider" />
-              <CardBody className="space-y-4">
-                <Select
-                  className="app-dark-select"
-                  labelPlacement="outside-top"
-                  label="Categoría importada"
-                  placeholder="Selecciona una categoría"
-                  selectedKeys={selectedCategoryId ? [selectedCategoryId] : []}
-                  onSelectionChange={(keys) => {
-                    const selected = Array.from(keys)[0] as string;
-                    if (selected) {
-                      handleCategorySelection(selected);
+              <CardBody className="flex min-h-0 flex-col">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                  <Select
+                    className="app-dark-select"
+                    labelPlacement="outside-top"
+                    label="Categoría importada"
+                    placeholder="Selecciona una categoría"
+                    disallowEmptySelection
+                    selectedKeys={
+                      selectedCategoryId ? [selectedCategoryId] : []
                     }
-                  }}
-                >
-                  {kumiteCategories.map((category) => (
-                    <SelectItem key={category.id} className="text-black">
-                      {category.categoria}
-                    </SelectItem>
-                  ))}
-                </Select>
-
-                <Select
-                  className="app-dark-select"
-                  labelPlacement="outside-top"
-                  label={t("kumite:config.area")}
-                  placeholder={t("kumite:config.area")}
-                  selectedKeys={state.area ? [state.area] : []}
-                  onSelectionChange={(keys) => {
-                    const selected = Array.from(keys)[0] as string;
-                    dispatch({ type: "SET_AREA", payload: selected });
-                  }}
-                >
-                  {["1", "2", "3", "4"].map((area) => (
-                    <SelectItem
-                      key={area}
-                      className="text-black"
-                    >{`Área ${area}`}</SelectItem>
-                  ))}
-                </Select>
-
-                <Input
-                  className="app-dark-input"
-                  labelPlacement="outside-top"
-                  label={t("kumite:config.category")}
-                  placeholder={t("kumite:config.categoryPlaceholder")}
-                  value={state.categoria}
-                  onValueChange={(value) =>
-                    dispatch({
-                      type: "SET_CATEGORIA",
-                      payload: { categoria: value, titulo: value },
-                    })
-                  }
-                />
-
-                <Select
-                  className="app-dark-select"
-                  labelPlacement="outside-top"
-                  label={t("kumite:config.matchDuration")}
-                  selectedKeys={[state.matchDuration.toString()]}
-                  onSelectionChange={(keys) => {
-                    const selected = parseInt(Array.from(keys)[0] as string);
-                    dispatch({ type: "SET_MATCH_DURATION", payload: selected });
-                    if (currentMatch) {
-                      dispatch({
-                        type: "UPDATE_MATCH",
-                        payload: {
-                          id: currentMatch.id,
-                          data: { timeRemaining: selected },
-                        },
-                      });
-                    }
-                    reset(selected);
-                  }}
-                >
-                  <SelectItem key="30" className="text-black">
-                    30 {t("kumite:config.seconds")}
-                  </SelectItem>
-                  <SelectItem key="60" className="text-black">
-                    1:00
-                  </SelectItem>
-                  <SelectItem key="90" className="text-black">
-                    1:30
-                  </SelectItem>
-                  <SelectItem key="120" className="text-black">
-                    2:00
-                  </SelectItem>
-                  <SelectItem key="180" className="text-black">
-                    3:00
-                  </SelectItem>
-                </Select>
-
-                <Divider className="app-subtle-divider" />
-
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-slate-100">
-                    {t("kumite:competitor.list")}
-                  </h3>
-                  <Button
-                    className="app-button-primary"
-                    fullWidth
-                    onPress={() => setShowAgregarDialog(true)}
+                    onSelectionChange={(keys) => {
+                      const selected = Array.from(keys)[0] as string;
+                      if (selected) {
+                        handleCategorySelection(selected);
+                      }
+                    }}
                   >
-                    {t("kumite:competitor.add")}
-                  </Button>
-                  <p className="text-sm text-slate-400">
-                    {t("kumite:competitor.total")}: {state.competidores.length}
-                  </p>
+                    {kumiteCategories.map((category) => (
+                      <SelectItem key={category.id} className="text-black">
+                        {category.categoria}
+                      </SelectItem>
+                    ))}
+                  </Select>
 
-                  {state.competidores.map((comp) => (
-                    <div
-                      key={comp.id}
-                      className="app-competitor-row flex justify-between items-center p-3 rounded-xl"
+                  <Select
+                    className="app-dark-select"
+                    labelPlacement="outside-top"
+                    label={t("kumite:config.area")}
+                    placeholder={t("kumite:config.area")}
+                    disallowEmptySelection
+                    selectedKeys={state.area ? [state.area] : []}
+                    onSelectionChange={(keys) => {
+                      const selected = Array.from(keys)[0] as string;
+                      if (selected) {
+                        dispatch({ type: "SET_AREA", payload: selected });
+                      }
+                    }}
+                  >
+                    {["1", "2", "3", "4"].map((area) => (
+                      <SelectItem
+                        key={area}
+                        className="text-black"
+                      >{`Área ${area}`}</SelectItem>
+                    ))}
+                  </Select>
+
+                  <Input
+                    className="app-dark-input"
+                    labelPlacement="outside-top"
+                    label={t("kumite:config.category")}
+                    placeholder={t("kumite:config.categoryPlaceholder")}
+                    value={state.categoria}
+                    onValueChange={(value) =>
+                      dispatch({
+                        type: "SET_CATEGORIA",
+                        payload: { categoria: value, titulo: value },
+                      })
+                    }
+                  />
+
+                  <Select
+                    className="app-dark-select"
+                    labelPlacement="outside-top"
+                    label={t("kumite:config.matchDuration")}
+                    disallowEmptySelection
+                    selectedKeys={[state.matchDuration.toString()]}
+                    onSelectionChange={(keys) => {
+                      const selected = parseInt(Array.from(keys)[0] as string);
+                      dispatch({
+                        type: "SET_MATCH_DURATION",
+                        payload: selected,
+                      });
+                      if (currentMatch) {
+                        dispatch({
+                          type: "UPDATE_MATCH",
+                          payload: {
+                            id: currentMatch.id,
+                            data: { timeRemaining: selected },
+                          },
+                        });
+                      }
+                      reset(selected);
+                    }}
+                  >
+                    <SelectItem key="30" className="text-black">
+                      30 {t("kumite:config.seconds")}
+                    </SelectItem>
+                    <SelectItem key="60" className="text-black">
+                      1:00
+                    </SelectItem>
+                    <SelectItem key="90" className="text-black">
+                      1:30
+                    </SelectItem>
+                    <SelectItem key="120" className="text-black">
+                      2:00
+                    </SelectItem>
+                    <SelectItem key="180" className="text-black">
+                      3:00
+                    </SelectItem>
+                  </Select>
+
+                  <Divider className="app-subtle-divider" />
+
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-slate-100">
+                      {t("kumite:competitor.list")}
+                    </h3>
+                    <Button
+                      className="app-button-primary"
+                      fullWidth
+                      onPress={() => setShowAgregarDialog(true)}
                     >
-                      <span className="text-sm text-slate-100 font-medium">
-                        {comp.Nombre} ({comp.Edad})
-                      </span>
-                      <Button
-                        size="sm"
-                        className="app-button-danger min-w-12"
-                        onPress={() => handleRemoveCompetidor(comp.id)}
+                      {t("kumite:competitor.add")}
+                    </Button>
+                    <p className="text-sm text-slate-400">
+                      {t("kumite:competitor.total")}:{" "}
+                      {state.competidores.length}
+                    </p>
+
+                    {state.competidores.map((comp) => (
+                      <div
+                        key={comp.id}
+                        className="app-competitor-row flex justify-between items-center p-3 rounded-xl"
                       >
-                        ×
-                      </Button>
-                    </div>
-                  ))}
+                        <span className="text-sm text-slate-100 font-medium">
+                          {comp.Nombre} ({comp.Edad})
+                        </span>
+                        <Button
+                          size="sm"
+                          className="app-button-danger min-w-12"
+                          onPress={() => handleRemoveCompetidor(comp.id)}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {!state.bracket && (
-                  <Button
-                    className="app-button-primary"
-                    fullWidth
-                    onPress={handleGenerarBracket}
-                    isDisabled={state.competidores.length < 2}
-                  >
-                    {t("kumite:bracket.generate")}
-                  </Button>
+                  <div className="shrink-0 border-t border-[rgba(80,125,196,0.18)] pt-4">
+                    <Button
+                      className="app-button-primary"
+                      fullWidth
+                      onPress={handleGenerarBracket}
+                      isDisabled={state.competidores.length < 2}
+                    >
+                      {t("kumite:bracket.generate")}
+                    </Button>
+                  </div>
                 )}
               </CardBody>
             </Card>
           </div>
 
           {/* Match Actual */}
-          <Card className="app-panel rounded-[1.75rem] lg:col-span-2">
-            <CardHeader>
+          <Card className="app-panel rounded-[1rem] lg:h-full">
+            {/*   <CardHeader>
               <h2 className="text-xl font-semibold text-white">
                 {t("kumite:match.current")}
               </h2>
-            </CardHeader>
+            </CardHeader> */}
             <Divider className="app-subtle-divider" />
-            <CardBody>
+            <CardBody className="flex min-h-0 flex-col">
               {!currentMatch ? (
-                <div className="app-empty-state my-8">
+                <div className="app-empty-state my-8 flex-1">
                   <p className="text-slate-200 mb-2">
                     {t("kumite:messages.noCompetitors")}
                   </p>
@@ -703,230 +985,134 @@ export default function KumitePage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="flex min-h-0 flex-1 flex-col gap-2">
                   {/* Timer */}
-                  <div className="text-center">
-                    <div className="text-6xl font-bold mb-4 text-white">
-                      {formattedTime}
+                  <div className="mb-2 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-around">
+                    <div className="text-center">
+                      <div
+                        className={`text-6xl font-bold ${
+                          isTimeExpired
+                            ? "text-rose-400"
+                            : isAtoshiBaraku
+                              ? "animate-pulse text-amber-300"
+                              : "text-white"
+                        }`}
+                      >
+                        {formattedTime}
+                      </div>
+                      {isAtoshiBaraku && (
+                        <p className="mt-2 text-sm font-bold uppercase tracking-[0.2em] text-amber-300">
+                          Atoshi Baraku
+                        </p>
+                      )}
                     </div>
-                    <div className="flex justify-center gap-2">
+                    <div className="flex flex-wrap justify-center gap-2 items-center">
                       <Button
                         color={isRunning ? "warning" : "success"}
                         onPress={handleStartPauseTimer}
-                        isDisabled={currentMatch.status === "completed"}
+                        isDisabled={isMatchCompleted || isTimeExpired}
                       >
                         {isRunning
                           ? t("kumite:match.pause")
                           : t("kumite:match.start")}
                       </Button>
-                      <Button
-                        variant="flat"
-                        onPress={handleResetTimer}
-                        isDisabled={currentMatch.status === "completed"}
-                      >
+                      <Button color="primary" onPress={handleResolveMatch}>
+                        Dar resultado
+                      </Button>
+                      <Button variant="flat" onPress={handleResetTimer}>
                         {t("kumite:match.reset")}
                       </Button>
+                      <Button
+                        color={"danger"}
+                        variant="bordered"
+                        onPress={handleSwapSides}
+                        isDisabled={
+                          !!isMatchCompleted ||
+                          !currentMatch.competidorAka ||
+                          !currentMatch.competidorShiro
+                        }
+                      >
+                        Cambiar
+                      </Button>
                     </div>
+                    {isTimeExpired && !isMatchCompleted && (
+                      <p className="mt-3 text-center text-sm text-amber-300">
+                        Tiempo cumplido. Resolvé el combate manualmente.
+                      </p>
+                    )}
                   </div>
 
-                  <Divider className="app-subtle-divider" />
+                  {/*    <Divider className="app-subtle-divider" /> */}
 
                   {/* Competidores */}
-                  <div className="grid grid-cols-2 gap-6">
-                    {/* Aka (Rojo) */}
-                    <div className="rounded-2xl p-4 bg-[rgba(93,22,37,0.48)] border border-rose-500/25">
-                      <div className="text-center mb-4">
-                        <Chip color="danger" className="mb-2 text-white">
-                          {t("kumite:competitor.aka")}
-                        </Chip>
-                        <h3 className="text-xl font-bold text-white">
-                          {currentMatch.competidorAka?.Nombre || "BYE"}
-                        </h3>
-                        <div className="text-4xl font-bold my-4 text-white">
-                          {currentMatch.scoreAka}
-                        </div>
-                      </div>
-
-                      {currentMatch.competidorAka && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Button
-                              size="sm"
-                              color="primary"
-                              fullWidth
-                              onPress={() => handleAddScore("aka", 0.5)}
-                              isDisabled={currentMatch.status === "completed"}
-                            >
-                              +0.5 {t("kumite:actions.wazari")}
-                            </Button>
-                            <Button
-                              size="sm"
-                              color="secondary"
-                              fullWidth
-                              onPress={() => handleAddScore("aka", 1)}
-                              isDisabled={currentMatch.status === "completed"}
-                            >
-                              +1 {t("kumite:actions.ippon")}
-                            </Button>
-                          </div>
-
-                          <Divider />
-
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold text-gray-500 uppercase">
-                              {t("kumite:penalties.title")}
-                            </p>
-                            <div className="flex flex-wrap gap-1 mb-2 min-h-6">
-                              {(currentMatch.penaltiesAka || []).map(
-                                (p, idx) => (
-                                  <Chip
-                                    key={idx}
-                                    size="sm"
-                                    color="warning"
-                                    variant="flat"
-                                    onClose={
-                                      currentMatch.status === "completed"
-                                        ? undefined
-                                        : () => handleRemovePenalty("aka", idx)
-                                    }
-                                  >
-                                    {t(`kumite:penalties.${p}`)}
-                                  </Chip>
-                                ),
-                              )}
-                            </div>
-                            <p className="text-xs font-semibold text-gray-500 uppercase mt-2">
-                              {t("kumite:warnings.title")}
-                            </p>
-                            <div className="flex flex-wrap gap-1 mb-2 min-h-6">
-                              {(currentMatch.warningsAka || []).map(
-                                (w, idx) => (
-                                  <Chip
-                                    key={idx}
-                                    size="sm"
-                                    color="danger"
-                                    variant="flat"
-                                    onClose={
-                                      currentMatch.status === "completed"
-                                        ? undefined
-                                        : () => handleRemoveWarning("aka", idx)
-                                    }
-                                  >
-                                    {t(`kumite:warnings.${w}`)}
-                                  </Chip>
-                                ),
-                              )}
-                            </div>
-                            <div className="grid grid-cols-3 gap-1">
-                              {(
-                                [
-                                  "atenai",
-                                  "atenai_chui",
-                                  "atenai_hansoku",
-                                ] as PenaltyType[]
-                              ).map((p) => (
-                                <Button
-                                  key={p}
-                                  size="sm"
-                                  variant="bordered"
-                                  className={infractionButtonClass}
-                                  onPress={() => handleAddPenalty("aka", p)}
-                                  isDisabled={
-                                    currentMatch.status === "completed" ||
-                                    currentMatch.penaltiesAka?.includes(p)
-                                  }
-                                >
-                                  {t(`kumite:penalties.${p}`)}
-                                </Button>
-                              ))}
-                            </div>
-                            <div className="grid grid-cols-4 gap-1">
-                              {(
-                                [
-                                  "kinshi",
-                                  "kinshi_ni",
-                                  "kinshi_chui",
-                                  "kinshi_hansoku",
-                                ] as WarningType[]
-                              ).map((w) => (
-                                <Button
-                                  key={w}
-                                  size="sm"
-                                  variant="bordered"
-                                  className={infractionButtonClass}
-                                  onPress={() => handleAddWarning("aka", w)}
-                                  isDisabled={
-                                    currentMatch.status === "completed" ||
-                                    currentMatch.warningsAka?.includes(w)
-                                  }
-                                >
-                                  {t(`kumite:warnings.${w}`)}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <Divider />
-
-                          <Button
-                            size="sm"
-                            variant="bordered"
-                            className={winnerButtonClass}
-                            fullWidth
-                            onPress={() =>
-                              handleDeclareWinner(
-                                currentMatch.competidorAka!.id,
-                              )
-                            }
-                            isDisabled={currentMatch.status === "completed"}
-                          >
-                            {t("kumite:actions.declareWinner")}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                     {/* Shiro (Blanco) */}
                     <div className="rounded-2xl p-4 bg-[rgba(255,255,255,0.5)] border border-slate-400/20">
-                      <div className="text-center mb-4">
-                        <Chip className="mb-2 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white">
-                          {t("kumite:competitor.shiro")}
-                        </Chip>
-                        <h3 className="text-xl font-bold">
-                          {currentMatch.competidorShiro?.Nombre || "BYE"}
-                        </h3>
-                        <div className="text-4xl font-bold my-4">
-                          {currentMatch.scoreShiro}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-center gap-3 text-center">
+                          <Chip className="bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white">
+                            {t("kumite:competitor.shiro")}
+                          </Chip>
+                          <h3 className="text-xl font-bold">
+                            {currentMatch.competidorShiro?.Nombre || "BYE"}
+                          </h3>
                         </div>
+                        <div className="flex items-center justify-center text-4xl font-bold my-4">
+                          <p>{currentMatch.scoreShiro}</p>
+                        </div>
+                        {/*    <div className="space-y-3">
+                          <div>
+                            <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                              Wazari
+                            </p>
+                            <MarkerDots
+                              count={currentMatch.techniqueCountsShiro?.wazari || 0}
+                              filledClass="border-slate-600 bg-transparent"
+                              emptyClass="border-slate-400/40 bg-white/35"
+                            />
+                          </div>
+                          <div>
+                            <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                              Atenai
+                            </p>
+                            <MarkerDots
+                              count={currentMatch.atenaiCountShiro || 0}
+                              filledClass="border-amber-600 bg-transparent"
+                              emptyClass="border-amber-700/25 bg-amber-100/40"
+                            />
+                          </div>
+                        </div> */}
                       </div>
 
                       {currentMatch.competidorShiro && (
                         <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Button
-                              size="sm"
-                              color="primary"
-                              fullWidth
-                              onPress={() => handleAddScore("shiro", 0.5)}
-                              isDisabled={currentMatch.status === "completed"}
-                            >
-                              +0.5 {t("kumite:actions.wazari")}
-                            </Button>
-                            <Button
-                              size="sm"
-                              color="secondary"
-                              fullWidth
-                              onPress={() => handleAddScore("shiro", 1)}
-                              isDisabled={currentMatch.status === "completed"}
-                            >
-                              +1 {t("kumite:actions.ippon")}
-                            </Button>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <ScoreControl
+                              label={t("kumite:actions.wazari")}
+                              points={0.5}
+                              onAdd={() => handleAddScore("shiro", 0.5)}
+                              onRemove={() => handleRemoveScore("shiro", 0.5)}
+                              disabled={!!isMatchCompleted}
+                              currentMatch={currentMatch}
+                              side="shiro"
+                              markerType="wazari"
+                            />
+                            <ScoreControl
+                              label={t("kumite:actions.ippon")}
+                              points={1}
+                              onAdd={() => handleAddScore("shiro", 1)}
+                              onRemove={() => handleRemoveScore("shiro", 1)}
+                              disabled={!!isMatchCompleted}
+                              currentMatch={currentMatch}
+                              side="shiro"
+                              markerType="ippon"
+                            />
                           </div>
 
-                          <Divider />
+                          {/*     <Divider /> */}
 
                           <div className="space-y-2">
-                            <p className="text-xs font-semibold text-gray-400 uppercase">
+                            <p className="text-xs font-semibold text-black uppercase">
                               {t("kumite:penalties.title")}
                             </p>
                             <div className="flex flex-wrap gap-1 mb-2 min-h-6">
@@ -938,7 +1124,7 @@ export default function KumitePage() {
                                     color="warning"
                                     variant="flat"
                                     onClose={
-                                      currentMatch.status === "completed"
+                                      isMatchCompleted
                                         ? undefined
                                         : () =>
                                             handleRemovePenalty("shiro", idx)
@@ -949,7 +1135,7 @@ export default function KumitePage() {
                                 ),
                               )}
                             </div>
-                            <p className="text-xs font-semibold text-gray-400 uppercase mt-2">
+                            <p className="text-xs font-semibold text-black uppercase mt-2">
                               {t("kumite:warnings.title")}
                             </p>
                             <div className="flex flex-wrap gap-1 mb-2 min-h-6">
@@ -961,7 +1147,7 @@ export default function KumitePage() {
                                     color="danger"
                                     variant="flat"
                                     onClose={
-                                      currentMatch.status === "completed"
+                                      isMatchCompleted
                                         ? undefined
                                         : () =>
                                             handleRemoveWarning("shiro", idx)
@@ -1011,7 +1197,7 @@ export default function KumitePage() {
                                   className={infractionButtonClass}
                                   onPress={() => handleAddWarning("shiro", w)}
                                   isDisabled={
-                                    currentMatch.status === "completed" ||
+                                    isMatchCompleted ||
                                     currentMatch.warningsShiro?.includes(w)
                                   }
                                 >
@@ -1021,7 +1207,7 @@ export default function KumitePage() {
                             </div>
                           </div>
 
-                          <Divider />
+                          {/*  <Divider /> */}
 
                           <Button
                             size="sm"
@@ -1033,7 +1219,186 @@ export default function KumitePage() {
                                 currentMatch.competidorShiro!.id,
                               )
                             }
-                            isDisabled={currentMatch.status === "completed"}
+                            isDisabled={!!isMatchCompleted}
+                          >
+                            {t("kumite:actions.declareWinner")}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Aka (Rojo) */}
+                    <div className="rounded-2xl p-4 bg-[rgba(93,22,37,0.48)] border border-rose-500/25">
+                      <div className="mb-4">
+                        <div className="flex items-center justify-center gap-3 text-center">
+                          <Chip color="danger" className="text-white">
+                            {t("kumite:competitor.aka")}
+                          </Chip>
+                          <h3 className="text-xl font-bold text-white">
+                            {currentMatch.competidorAka?.Nombre || "BYE"}
+                          </h3>
+                        </div>
+                        <div className="flex items-center justify-center text-4xl font-bold my-4 text-white">
+                          <p>{currentMatch.scoreAka}</p>
+                        </div>
+                        {/* <div className="space-y-3">
+                          <div>
+                            <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-rose-100/90">
+                              Wazari
+                            </p>
+                            <MarkerDots
+                              count={currentMatch.techniqueCountsAka?.wazari || 0}
+                              filledClass="border-rose-100 bg-transparent"
+                              emptyClass="border-rose-100/35 bg-rose-200/15"
+                            />
+                          </div>
+                          <div>
+                            <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-amber-100/90">
+                              Atenai
+                            </p>
+                            <MarkerDots
+                              count={currentMatch.atenaiCountAka || 0}
+                              filledClass="border-amber-200 bg-transparent"
+                              emptyClass="border-amber-100/30 bg-amber-200/10"
+                            />
+                          </div>
+                        </div> */}
+                      </div>
+
+                      {currentMatch.competidorAka && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <ScoreControl
+                              label={t("kumite:actions.wazari")}
+                              points={0.5}
+                              onAdd={() => handleAddScore("aka", 0.5)}
+                              onRemove={() => handleRemoveScore("aka", 0.5)}
+                              disabled={!!isMatchCompleted}
+                              currentMatch={currentMatch}
+                              side="aka"
+                              markerType="wazari"
+                            />
+                            <ScoreControl
+                              label={t("kumite:actions.ippon")}
+                              points={1}
+                              onAdd={() => handleAddScore("aka", 1)}
+                              onRemove={() => handleRemoveScore("aka", 1)}
+                              disabled={!!isMatchCompleted}
+                              currentMatch={currentMatch}
+                              side="aka"
+                              markerType="ippon"
+                            />
+                          </div>
+
+                          {/*  <Divider /> */}
+
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-gray-500 uppercase">
+                              {t("kumite:penalties.title")}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mb-2 min-h-6">
+                              {(currentMatch.penaltiesAka || []).map(
+                                (p, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    size="sm"
+                                    color="warning"
+                                    variant="flat"
+                                    onClose={
+                                      isMatchCompleted
+                                        ? undefined
+                                        : () => handleRemovePenalty("aka", idx)
+                                    }
+                                  >
+                                    {t(`kumite:penalties.${p}`)}
+                                  </Chip>
+                                ),
+                              )}
+                            </div>
+                            <p className="text-xs font-semibold text-gray-500 uppercase mt-2">
+                              {t("kumite:warnings.title")}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mb-2 min-h-6">
+                              {(currentMatch.warningsAka || []).map(
+                                (w, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    size="sm"
+                                    color="danger"
+                                    variant="flat"
+                                    onClose={
+                                      isMatchCompleted
+                                        ? undefined
+                                        : () => handleRemoveWarning("aka", idx)
+                                    }
+                                  >
+                                    {t(`kumite:warnings.${w}`)}
+                                  </Chip>
+                                ),
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-1">
+                              {(
+                                [
+                                  "atenai",
+                                  "atenai_chui",
+                                  "atenai_hansoku",
+                                ] as PenaltyType[]
+                              ).map((p) => (
+                                <Button
+                                  key={p}
+                                  size="sm"
+                                  variant="bordered"
+                                  className={infractionButtonClass}
+                                  onPress={() => handleAddPenalty("aka", p)}
+                                  isDisabled={
+                                    currentMatch.status === "completed" ||
+                                    currentMatch.penaltiesAka?.includes(p)
+                                  }
+                                >
+                                  {t(`kumite:penalties.${p}`)}
+                                </Button>
+                              ))}
+                            </div>
+                            <div className="grid grid-cols-4 gap-1">
+                              {(
+                                [
+                                  "kinshi",
+                                  "kinshi_ni",
+                                  "kinshi_chui",
+                                  "kinshi_hansoku",
+                                ] as WarningType[]
+                              ).map((w) => (
+                                <Button
+                                  key={w}
+                                  size="sm"
+                                  variant="bordered"
+                                  className={infractionButtonClass}
+                                  onPress={() => handleAddWarning("aka", w)}
+                                  isDisabled={
+                                    isMatchCompleted ||
+                                    currentMatch.warningsAka?.includes(w)
+                                  }
+                                >
+                                  {t(`kumite:warnings.${w}`)}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* <Divider /> */}
+
+                          <Button
+                            size="sm"
+                            variant="bordered"
+                            className={winnerButtonClass}
+                            fullWidth
+                            onPress={() =>
+                              handleDeclareWinner(
+                                currentMatch.competidorAka!.id,
+                              )
+                            }
+                            isDisabled={!!isMatchCompleted}
                           >
                             {t("kumite:actions.declareWinner")}
                           </Button>
@@ -1043,10 +1408,10 @@ export default function KumitePage() {
                   </div>
 
                   {/* Estado del Match */}
-                  <div className="text-center">
+                  {/*          <div className="text-center">
                     <Chip
                       color={
-                        currentMatch.status === "completed"
+                        isMatchCompleted
                           ? "success"
                           : "warning"
                       }
@@ -1059,7 +1424,7 @@ export default function KumitePage() {
                         t("kumite:bracket.completed")}
                     </Chip>
 
-                    {currentMatch.status === "completed" &&
+                    {canResolveTimeExpiredMatch &&
                       currentMatch.scoreAka === currentMatch.scoreShiro &&
                       !currentMatch.winnerId &&
                       !currentMatch.isEnchoSen && (
@@ -1074,7 +1439,7 @@ export default function KumitePage() {
                         </div>
                       )}
 
-                    {currentMatch.status === "completed" &&
+                    {canResolveTimeExpiredMatch &&
                       currentMatch.isEnchoSen &&
                       currentMatch.scoreAka === currentMatch.scoreShiro &&
                       !currentMatch.winnerId && (
@@ -1110,7 +1475,7 @@ export default function KumitePage() {
                         </div>
                       )}
 
-                    {currentMatch.status === "completed" &&
+                    {isMatchCompleted &&
                       (currentMatch.winnerId ||
                         currentMatch.scoreAka !== currentMatch.scoreShiro) && (
                         <div className="mt-4">
@@ -1124,7 +1489,7 @@ export default function KumitePage() {
                           </Button>
                         </div>
                       )}
-                  </div>
+                  </div> */}
                 </div>
               )}
             </CardBody>
@@ -1145,6 +1510,7 @@ export default function KumitePage() {
             onClose={() => setShowBracketDialog(false)}
             bracket={state.bracket}
             onSelectMatch={handleSelectMatch}
+            onEditMatchResult={handleEditMatchResult}
           />
           <ResultadosFinales
             isOpen={showResultsDialog}

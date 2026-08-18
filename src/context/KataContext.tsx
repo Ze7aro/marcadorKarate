@@ -24,7 +24,12 @@ interface KataState {
   roundFormat: KataRoundFormatKey;
 }
 
-export type KataRoundFormatKey = 'tokui_only' | 'sentei_tokui' | 'full_three_rounds';
+export type KataRoundFormatKey =
+  | 'tokui_only'
+  | 'shitei_only'
+  | 'sentei_plus_tokui'
+  | 'sentei_tokui'
+  | 'full_three_rounds';
 
 export interface Round {
   id: number;

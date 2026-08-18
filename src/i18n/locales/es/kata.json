@@ -1,8 +1,8 @@
 {
   "module": {
     "title": "Kata",
-    "subtitle": "Módulo Kata",
-    "description": "Gestión de evaluaciones de formas con sistema de jueces",
+    "subtitle": "Kata",
+    "description": "Gestor de evaluación de formas",
     "start": "Iniciar Kata"
   },
   "config": {
