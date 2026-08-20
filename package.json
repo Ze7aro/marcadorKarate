@@ -1,7 +1,7 @@
 {
   "name": "marcador-karate",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -30,6 +30,7 @@
     "@tauri-apps/plugin-dialog": "2.7.1",
     "@tauri-apps/plugin-fs": "2.5.1",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "clsx": "2.1.1",
     "framer-motion": "11.15.0",
     "i18next": "^25.7.4",

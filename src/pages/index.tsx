@@ -6,6 +6,7 @@ import CategoryUploadPanel from "@/components/CategoryUploadPanel";
 import { useCategoryCatalog } from "@/hooks/useCategoryCatalog";
 import kataLogo from "@/assets/Kata-logo.png";
 import kumiteLogo from "@/assets/kumite - logo.png";
+import { checkForAppUpdates, isTauriApp } from "@/lib/updater";
 
 export default function IndexPage() {
   const navigate = useNavigate();
@@ -22,6 +23,18 @@ export default function IndexPage() {
         <div className="flex justify-end mb-6">
           <LanguageSelector />
         </div>
+
+        {isTauriApp() ? (
+          <div className="flex justify-end mb-4">
+            <button
+              className="text-sm text-slate-300 hover:text-white transition-colors"
+              onClick={() => void checkForAppUpdates()}
+              type="button"
+            >
+              Buscar actualizaciones
+            </button>
+          </div>
+        ) : null}
 
         <div className="text-center mb-14">
           <h2 className="app-label mb-4">Marcador Kenshukan</h2>
@@ -94,7 +107,7 @@ export default function IndexPage() {
 
         <div className="mt-8 text-center">
           <p className="text-sm text-slate-500">
-            {t("common:app.version", { version: "0.1.0" })}
+            {t("common:app.version", { version: "1.0.1" })}
           </p>
         </div>
       </div>
