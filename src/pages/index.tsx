@@ -92,7 +92,7 @@ export default function IndexPage() {
 
         <div className="mt-8 text-center">
           <p className="text-sm text-slate-500">
-            {t("common:app.version", { version: "1.0.1" })}
+            {t("common:app.version", { version: "1.1.0" })}
           </p>
         </div>
       </div>

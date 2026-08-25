@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, ReactNode } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useTranslation } from 'react-i18next';
-import { checkForAppUpdates } from '@/lib/updater';
 
 interface ConfigContextType {
   config: AppConfig;
@@ -49,10 +48,6 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       document.documentElement.lang = config.language;
     }
   }, [config.language, i18n]);
-
-  useEffect(() => {
-    void checkForAppUpdates({ silent: true });
-  }, []);
 
   const updateConfig = (newConfig: Partial<AppConfig>) => {
     setConfig((prev) => ({

@@ -25,7 +25,6 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -37,15 +36,6 @@
     "resources": []
   },
   "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDAxRDk1QUI0OTAyQUE5MjQKUldRa3FTcVF0RnJaQWZlN1hnSDV0WUFVUzNITlZMbytleEVTQi91Q2FvZFBkSTk2OTlqSGRFbXMK",
-      "endpoints": [
-        "https://REPLACE_WITH_YOUR_RELEASES_HOST/latest.json"
-      ],
-      "windows": {
-        "installMode": "passive"
-      }
-    },
     "sql": {
       "scope": {
         "allowed": [
