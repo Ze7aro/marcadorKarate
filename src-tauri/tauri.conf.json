@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "marcador-karate",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "identifier": "com.jhml.marcador-karate",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -38,7 +38,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDAxRDk1QUI0OTAyQUE5MjQKUldRa3FTcVF0RnJaQWZlN1hnSDV0WUFVUzNITlZMbytleEVTQi91Q2FvZFBkSTk2OTlqSGRFbXMK",
       "endpoints": [
         "https://REPLACE_WITH_YOUR_RELEASES_HOST/latest.json"
       ],

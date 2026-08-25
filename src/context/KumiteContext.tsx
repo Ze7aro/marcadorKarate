@@ -1,12 +1,8 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { useCrossPlatformChannel } from '@/hooks/useCrossPlatformChannel';
+import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import {
   CompetidorKumite,
   Match,
   BracketState,
-  KumiteStateSync,
-  KUMITE_EVENTS,
   PenaltyType,
   WarningType,
   TechniqueType,
@@ -18,6 +14,16 @@ import {
   penaltiesFromAtenaiCount,
   recalculateBracket,
 } from '@/utils/bracketUtils';
+import { useKumitePersistence } from './useKumitePersistence';
+import { useKumiteProjectionSync } from './useKumiteProjectionSync';
+
+const ATENAI_ORDER: PenaltyType[] = ['atenai', 'atenai_chui', 'atenai_hansoku'];
+const KINSHI_ORDER: WarningType[] = [
+  'kinshi',
+  'kinshi_ni',
+  'kinshi_chui',
+  'kinshi_hansoku',
+];
 
 interface KumiteState {
   competidores: CompetidorKumite[];
@@ -134,6 +140,16 @@ function inferAtenaiCount(
   return 0;
 }
 
+function sortPenaltyLevels(penalties: PenaltyType[] | undefined): PenaltyType[] {
+  const items = penalties || [];
+  return ATENAI_ORDER.filter((item) => items.includes(item));
+}
+
+function sortWarningLevels(warnings: WarningType[] | undefined): WarningType[] {
+  const items = warnings || [];
+  return KINSHI_ORDER.filter((item) => items.includes(item));
+}
+
 function normalizeMatch(match: Match): Match {
   const techniqueCountsAka = inferTechniqueCounts(
     match.scoreAka,
@@ -148,6 +164,12 @@ function normalizeMatch(match: Match): Match {
     match.atenaiCountShiro,
     match.penaltiesShiro,
   );
+  const explicitPenaltiesAka = sortPenaltyLevels(
+    (match.penaltiesAka || []).filter((item) => item.startsWith('atenai')),
+  );
+  const explicitPenaltiesShiro = sortPenaltyLevels(
+    (match.penaltiesShiro || []).filter((item) => item.startsWith('atenai')),
+  );
 
   return {
     ...match,
@@ -157,14 +179,16 @@ function normalizeMatch(match: Match): Match {
     scoreShiro: calculateScoreFromTechniques(techniqueCountsShiro),
     atenaiCountAka,
     atenaiCountShiro,
-    penaltiesAka: penaltiesFromAtenaiCount(atenaiCountAka).concat(
-      (match.penaltiesAka || []).filter((item) => !item.startsWith('atenai')),
-    ),
-    penaltiesShiro: penaltiesFromAtenaiCount(atenaiCountShiro).concat(
-      (match.penaltiesShiro || []).filter((item) => !item.startsWith('atenai')),
-    ),
-    warningsAka: match.warningsAka || [],
-    warningsShiro: match.warningsShiro || [],
+    penaltiesAka:
+      explicitPenaltiesAka.length > 0
+        ? explicitPenaltiesAka
+        : penaltiesFromAtenaiCount(atenaiCountAka),
+    penaltiesShiro:
+      explicitPenaltiesShiro.length > 0
+        ? explicitPenaltiesShiro
+        : penaltiesFromAtenaiCount(atenaiCountShiro),
+    warningsAka: sortWarningLevels(match.warningsAka),
+    warningsShiro: sortWarningLevels(match.warningsShiro),
   };
 }
 
@@ -335,28 +359,26 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
         bracket: {
           ...state.bracket,
           matches: state.bracket.matches.map((m) =>
-            m.id === action.payload.matchId
+                m.id === action.payload.matchId
               ? (() => {
-                  const penaltiesKey =
-                    action.payload.side === 'aka' ? 'penaltiesAka' : 'penaltiesShiro';
-
                   if (action.payload.penalty.startsWith('atenai')) {
                     const countKey =
                       action.payload.side === 'aka' ? 'atenaiCountAka' : 'atenaiCountShiro';
-                    const currentCount = m[countKey] || 0;
+                    const penaltiesKey =
+                      action.payload.side === 'aka' ? 'penaltiesAka' : 'penaltiesShiro';
+                    const currentPenalties = sortPenaltyLevels(m[penaltiesKey] || []);
+                    const penaltyLevel = ATENAI_ORDER.indexOf(action.payload.penalty) + 1;
                     return normalizeMatch({
                       ...m,
-                      [countKey]: Math.min(3, currentCount + 1),
+                      [countKey]: Math.max(m[countKey] || 0, penaltyLevel),
+                      [penaltiesKey]: sortPenaltyLevels([
+                        ...currentPenalties,
+                        action.payload.penalty,
+                      ]),
                     });
                   }
 
-                  return normalizeMatch({
-                    ...m,
-                    [penaltiesKey]: [
-                      ...(m[penaltiesKey] || []),
-                      action.payload.penalty,
-                    ],
-                  });
+                  return m;
                 })()
               : m
           ),
@@ -379,9 +401,14 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
                   const penaltyToRemove = penalties[action.payload.index];
 
                   if (penaltyToRemove?.startsWith('atenai')) {
+                    const updatedPenalties = penalties.filter((_, i) => i !== action.payload.index);
                     return normalizeMatch({
                       ...m,
-                      [countKey]: Math.max(0, (m[countKey] || 0) - 1),
+                      [countKey]:
+                        updatedPenalties.length > 0
+                          ? ATENAI_ORDER.indexOf(updatedPenalties[updatedPenalties.length - 1]) + 1
+                          : 0,
+                      [penaltiesKey]: updatedPenalties,
                     });
                   }
 
@@ -404,10 +431,11 @@ function kumiteReducer(state: KumiteState, action: KumiteAction): KumiteState {
             m.id === action.payload.matchId
               ? {
                 ...m,
-                [action.payload.side === 'aka' ? 'warningsAka' : 'warningsShiro']: [
-                  ...(m[action.payload.side === 'aka' ? 'warningsAka' : 'warningsShiro'] || []),
-                  action.payload.warning,
-                ],
+                [action.payload.side === 'aka' ? 'warningsAka' : 'warningsShiro']:
+                  sortWarningLevels([
+                    ...(m[action.payload.side === 'aka' ? 'warningsAka' : 'warningsShiro'] || []),
+                    action.payload.warning,
+                  ]),
               }
               : m
           ),
@@ -562,111 +590,8 @@ const KumiteContext = createContext<KumiteContextType | undefined>(undefined);
 export const KumiteProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(kumiteReducer, initialState);
 
-  // Persistencia con localStorage
-  const [storedCompetidores, setStoredCompetidores] = useLocalStorage<CompetidorKumite[]>(
-    'kumiteCompetidores',
-    []
-  );
-  const [storedBracket, setStoredBracket] = useLocalStorage<BracketState | null>(
-    'kumiteBracket',
-    null
-  );
-  const [storedDuration, setStoredDuration] = useLocalStorage<number>('kumiteDuration', 120);
-  const [storedCategoria, setStoredCategoria] = useLocalStorage<string>('kumiteCategoria', '');
-  const [storedArea, setStoredArea] = useLocalStorage<string>('kumiteArea', '');
-
-  // Cargar estado inicial desde localStorage
-  useEffect(() => {
-    dispatch({
-      type: 'LOAD_STATE',
-      payload: {
-        competidores: storedCompetidores,
-        bracket: normalizeBracket(storedBracket),
-        matchDuration: storedDuration,
-        categoria: storedCategoria,
-        area: storedArea,
-      },
-    });
-  }, []); // Solo al montar
-
-  // Comunicación cross-platform
-  const postKumiteMessage = useCrossPlatformChannel<KumiteStateSync>(
-    KUMITE_EVENTS.SYNC_STATE,
-    (data) => {
-      console.log('Received kumite update:', data);
-    }
-  );
-
-  // Sincronizar estado con localStorage
-  useEffect(() => {
-    setStoredCompetidores(state.competidores);
-  }, [state.competidores, setStoredCompetidores]);
-
-  useEffect(() => {
-    setStoredBracket(state.bracket);
-  }, [state.bracket, setStoredBracket]);
-
-  useEffect(() => {
-    setStoredDuration(state.matchDuration);
-  }, [state.matchDuration, setStoredDuration]);
-
-  useEffect(() => {
-    setStoredCategoria(state.categoria);
-  }, [state.categoria, setStoredCategoria]);
-
-  useEffect(() => {
-    setStoredArea(state.area);
-  }, [state.area, setStoredArea]);
-
-  // Sincronizar con ventana de proyección
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      const currentMatch = state.bracket?.matches.find((m) => m.id === state.currentMatchId);
-
-      const dataParaEnviar: KumiteStateSync = {
-        currentMatch: currentMatch || null,
-        competidorAka: currentMatch?.competidorAka?.Nombre || '',
-        competidorShiro: currentMatch?.competidorShiro?.Nombre || '',
-        scoreAka: currentMatch?.scoreAka || 0,
-        scoreShiro: currentMatch?.scoreShiro || 0,
-        techniqueCountsAka: currentMatch?.techniqueCountsAka || createTechniqueCounts(),
-        techniqueCountsShiro: currentMatch?.techniqueCountsShiro || createTechniqueCounts(),
-        timeRemaining: currentMatch?.timeRemaining || 0,
-        isRunning: state.isTimerRunning,
-        categoria: state.categoria,
-        area: state.area,
-        penaltiesAka: currentMatch?.penaltiesAka || [],
-        penaltiesShiro: currentMatch?.penaltiesShiro || [],
-        atenaiCountAka: currentMatch?.atenaiCountAka || 0,
-        atenaiCountShiro: currentMatch?.atenaiCountShiro || 0,
-        warningsAka: currentMatch?.warningsAka || [],
-        warningsShiro: currentMatch?.warningsShiro || [],
-        status: currentMatch?.status || 'pending',
-        winner:
-          currentMatch?.status === 'completed' && currentMatch.winnerId
-            ? {
-              name:
-                currentMatch.winnerId === currentMatch.competidorAka?.id
-                  ? currentMatch.competidorAka?.Nombre || ''
-                  : currentMatch.competidorShiro?.Nombre || '',
-              side: currentMatch.winnerId === currentMatch.competidorAka?.id ? 'aka' : 'shiro',
-            }
-            : null,
-      };
-
-      postKumiteMessage(dataParaEnviar);
-      console.log('Kumite state synced at:', new Date().toISOString());
-    }, 300);
-
-    return () => clearTimeout(debounceTimer);
-  }, [
-    state.bracket,
-    state.currentMatchId,
-    state.isTimerRunning,
-    state.categoria,
-    state.area,
-    postKumiteMessage,
-  ]);
+  useKumitePersistence(state, dispatch, normalizeBracket);
+  useKumiteProjectionSync(state);
 
   return (
     <KumiteContext.Provider value={{ state, dispatch }}>

@@ -22,6 +22,7 @@ interface KataState {
   lastSyncTimestamp: number;
   previousRounds: Round[];
   roundFormat: KataRoundFormatKey;
+  sumRounds: boolean;
 }
 
 export type KataRoundFormatKey =
@@ -61,6 +62,7 @@ type KataAction =
   | { type: 'SYNC_COMPLETE'; payload: number }
   | { type: 'ARCHIVE_ROUND'; payload: Round }
   | { type: 'SET_ROUND_FORMAT'; payload: KataRoundFormatKey }
+  | { type: 'SET_SUM_ROUNDS'; payload: boolean }
   | { type: 'RESET_ALL' };
 
 const initialState: KataState = {
@@ -81,6 +83,7 @@ const initialState: KataState = {
   lastSyncTimestamp: 0,
   previousRounds: [],
   roundFormat: 'tokui_only',
+  sumRounds: false,
 };
 
 function kataReducer(state: KataState, action: KataAction): KataState {
@@ -160,6 +163,8 @@ function kataReducer(state: KataState, action: KataAction): KataState {
       return { ...state, previousRounds: [...state.previousRounds, action.payload] };
     case 'SET_ROUND_FORMAT':
       return { ...state, roundFormat: action.payload, previousRounds: [] };
+    case 'SET_SUM_ROUNDS':
+      return { ...state, sumRounds: action.payload };
     case 'RESET_ALL':
       return initialState;
     default:
@@ -192,6 +197,10 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [_storedRoundFormat, setStoredRoundFormat] = useLocalStorage<KataRoundFormatKey>(
     'kataRoundFormat',
     'tokui_only',
+  );
+  const [_storedSumRounds, setStoredSumRounds] = useLocalStorage<boolean>(
+    'kataSumRounds',
+    false,
   );
 
   const postKataMessage = useCrossPlatformChannel<KataStateSync>(
@@ -299,6 +308,10 @@ export const KataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     setStoredRoundFormat(state.roundFormat);
   }, [state.roundFormat, setStoredRoundFormat]);
+
+  useEffect(() => {
+    setStoredSumRounds(state.sumRounds);
+  }, [state.sumRounds, setStoredSumRounds]);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {

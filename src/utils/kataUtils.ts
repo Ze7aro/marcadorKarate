@@ -221,6 +221,7 @@ export const buildKataFinalResults = (
   previousRounds: RoundSnapshot[],
   currentCompetidores: RoundSnapshotCompetitor[],
   currentRoundCountsForFinal = true,
+  sumRounds = false,
 ): KataRoundResult[] => {
   const allRounds = [
     ...previousRounds,
@@ -239,8 +240,10 @@ export const buildKataFinalResults = (
     return [];
   }
 
-  if (scoredRounds.length === 1) {
-    return scoredRounds[0]
+  const latestRound = scoredRounds[scoredRounds.length - 1];
+
+  if (!sumRounds || scoredRounds.length === 1) {
+    return latestRound
       .map((competidor) => ({
         competitorUid: competidor.competitorUid!,
         nombre: competidor.Nombre,
@@ -254,29 +257,51 @@ export const buildKataFinalResults = (
       .sort((a, b) => b.total - a.total);
   }
 
-  const lastTwoRounds = scoredRounds.slice(-2);
-  const previousRoundMap = new Map(
-    lastTwoRounds[0].map((competidor) => [competidor.competitorUid!, competidor]),
-  );
+  const roundsToAccumulate = scoredRounds.slice(-2);
+  const latestRoundForAccumulation =
+    roundsToAccumulate[roundsToAccumulate.length - 1];
 
-  return lastTwoRounds[1]
-    .filter((competidor) => previousRoundMap.has(competidor.competitorUid!))
-    .map((competidor) => {
-      const previousRoundCompetitor = previousRoundMap.get(competidor.competitorUid!)!;
-      const round1Score = previousRoundCompetitor.PuntajeFinal ?? 0;
-      const round2Score = competidor.PuntajeFinal ?? 0;
+  const accumulatedScores = new Map<
+    string,
+    Omit<KataRoundResult, "competitorUid">
+  >();
 
-      return {
-        competitorUid: competidor.competitorUid!,
-        nombre: competidor.Nombre,
-        edad: competidor.Edad,
-        round1Score,
-        round2Score,
-        total: round1Score + round2Score,
-        latestRoundScore: round2Score,
+  roundsToAccumulate.forEach((round, roundIndex) => {
+    round.forEach((competidor) => {
+      const competitorUid = competidor.competitorUid!;
+      const currentScore = competidor.PuntajeFinal ?? 0;
+      const existing = accumulatedScores.get(competitorUid);
+
+      if (!existing) {
+        accumulatedScores.set(competitorUid, {
+          nombre: competidor.Nombre,
+          edad: competidor.Edad,
+          round1Score: roundIndex === 0 ? currentScore : null,
+          round2Score: currentScore,
+          total: currentScore,
+          latestRoundScore: currentScore,
+          kiken: competidor.Kiken,
+        });
+        return;
+      }
+
+      accumulatedScores.set(competitorUid, {
+        ...existing,
+        round1Score: existing.round1Score ?? currentScore,
+        round2Score: currentScore,
+        total: existing.total + currentScore,
+        latestRoundScore: currentScore,
         kiken: competidor.Kiken,
-      };
-    })
+      });
+    });
+  });
+
+  return latestRoundForAccumulation
+    .filter((competidor) => accumulatedScores.has(competidor.competitorUid!))
+    .map((competidor) => ({
+      competitorUid: competidor.competitorUid!,
+      ...accumulatedScores.get(competidor.competitorUid!)!,
+    }))
     .sort((a, b) => {
       if (Math.abs(b.total - a.total) > 0.001) {
         return b.total - a.total;

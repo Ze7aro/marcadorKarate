@@ -30,6 +30,7 @@ interface ResultadosFinalesProps {
   area: string;
   currentRound: number;
   roundFormat: KataRoundFormatKey;
+  sumRounds: boolean;
   onExportExcel?: () => void;
   onExportPDF?: () => void;
   onStartTieBreaker?: (tiedCompetitorIds: number[]) => void;
@@ -46,6 +47,7 @@ export default function ResultadosFinales({
   area,
   currentRound,
   roundFormat,
+  sumRounds,
   onExportExcel,
   onExportPDF,
   onStartTieBreaker,
@@ -56,8 +58,9 @@ export default function ResultadosFinales({
     previousRounds,
     competidores,
     roundStructure.countsForFinal,
+    sumRounds,
   );
-  const useAccumulatedResults = previousRounds.length > 0;
+  const useAccumulatedResults = sumRounds && previousRounds.length > 0;
   const competidoresConMetricas = competidores
     .filter((c) => c.PuntajeFinal !== null && !c.Kiken)
     .map((c) => ({
@@ -406,7 +409,7 @@ export default function ResultadosFinales({
                     <div className="mb-4 flex items-end justify-between gap-4">
                       <div>
                         <h3 className="text-2xl font-black text-slate-50">Ranking final</h3>
-                        <p className="mt-1 text-sm text-slate-400">Suma de Sentei/Tokui + Tokui</p>
+                        <p className="mt-1 text-sm text-slate-400">Suma de rondas habilitada</p>
                       </div>
                     </div>
                     <div className="space-y-3">

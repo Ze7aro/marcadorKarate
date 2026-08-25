@@ -14,6 +14,10 @@
   --app-danger: #fb7185;
   --app-warning: #f59e0b;
   --app-shadow: 0 24px 60px rgba(2, 8, 20, 0.45);
+  --app-scrollbar-track: rgba(9, 19, 35, 0.86);
+  --app-scrollbar-thumb: linear-gradient(180deg, rgba(40, 144, 255, 0.95) 0%, rgba(77, 195, 255, 0.78) 100%);
+  --app-scrollbar-thumb-hover: linear-gradient(180deg, rgba(77, 195, 255, 1) 0%, rgba(125, 211, 252, 0.9) 100%);
+  --app-scrollbar-border: rgba(80, 125, 196, 0.18);
 }
 
 body {
@@ -21,6 +25,81 @@ body {
     radial-gradient(circle at top, rgba(37, 99, 235, 0.16), transparent 28%),
     linear-gradient(180deg, #081221 0%, #0b1830 56%, #08111d 100%);
   color: var(--app-text);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(77, 195, 255, 0.85) rgba(9, 19, 35, 0.86);
+}
+
+html,
+body,
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(77, 195, 255, 0.85) rgba(9, 19, 35, 0.86);
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+  border-radius: 999px;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--app-scrollbar-thumb-hover);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.app-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(77, 195, 255, 0.85) rgba(9, 19, 35, 0.86);
+}
+
+.app-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.app-scrollbar::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+  border: 1px solid var(--app-scrollbar-border);
+  border-radius: 999px;
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--app-scrollbar-thumb-hover);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 #root {
